@@ -4,6 +4,7 @@ Card::Card(int number, bool faceUp)
 {
 	this->number = number;
 	this->faceUp = faceUp;
+	cardType = CardType::Invalid;
 }
 
 

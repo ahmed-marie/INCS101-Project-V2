@@ -12,7 +12,7 @@ public:
 
     ~Player() = default;
 
-    void setName(std::string name);
+    void setName(std::string&& name);
     const std::string& getName() const;
 
     void setScore(int score);

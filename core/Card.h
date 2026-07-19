@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-enum class CardType { Standard, Bonus, Penalty };
+enum class CardType {Invalid, Standard, Bonus, Penalty };
 
 // Abstract base for all card kinds. Note what's NOT here anymore:
 // no cout, no display() that prints. Card describes itself; the

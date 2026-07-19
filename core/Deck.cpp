@@ -134,7 +134,7 @@ CardEvent Deck::revealCard(int index)
 
 RevealedCardsEvent Deck::evaluateFlippedCards()
 {
-	RevealedCardsEvent status;
+	RevealedCardsEvent status = RevealedCardsEvent::Invalid;
 	// get the card pointers
 	std::unique_ptr<Card>& card1_ptr = cardsArr[revealedCardsIndex[0]];
 	std::unique_ptr<Card>& card2_ptr = cardsArr[revealedCardsIndex[1]];
@@ -206,7 +206,7 @@ RevealedCardsEvent Deck::evaluateFlippedCards()
 		removedCards += 2;
 		break;
 
-		// case 5. and 6.
+	// case 5. and 6.
 	case RevealedCardsEvent::StandardAndBonus:
 	case RevealedCardsEvent::StandardAndPenalty:
 		if (card1_type == CardType::Standard)
@@ -257,6 +257,7 @@ CardType Deck::revealLastCard()
 			return cardsArr[i]->getCardType();
 		}
 	}
+	return CardType::Invalid;
 }
 
 // Read-only accessors so a GUI (or GameSnapshot builder) can

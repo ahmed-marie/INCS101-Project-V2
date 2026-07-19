@@ -16,7 +16,7 @@ inline constexpr int DECK_SIZE =
 enum class CardEvent { NotFound, RevealedBefore, Found };
 
 enum class RevealedCardsEvent {
-    TwoSameStandard, TwoDifferentStandard,
+    Invalid, TwoSameStandard, TwoDifferentStandard,
     TwoPenalty, TwoBonus,
     StandardAndBonus, StandardAndPenalty, BonusAndPenalty
 };
