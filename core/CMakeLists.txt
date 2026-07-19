@@ -5,5 +5,6 @@ add_library(core STATIC
     BonusCard.cpp
     PenaltyCard.cpp
     Deck.cpp
-    Player.cpp)
+    Player.cpp
+    Game.cpp)
 
