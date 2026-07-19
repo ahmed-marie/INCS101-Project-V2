@@ -7,10 +7,12 @@
 // renders them itself; tests call the same getters to assert.
 class Player {
 public:
-    Player();
-    explicit Player(std::string name, int score = 0);
+ 
+    explicit Player(std::string name = std::string(), int score = 0);
 
-    void setName(const std::string& name);
+    ~Player() = default;
+
+    void setName(std::string name);
     const std::string& getName() const;
 
     void setScore(int score);
@@ -20,6 +22,7 @@ public:
     void setTurnsNo(int turns);
     int getTurnsNo() const;
     void incrementTurn();
+    void incrementTurn(int turn);
     void decrementTurn();
 
 private:
