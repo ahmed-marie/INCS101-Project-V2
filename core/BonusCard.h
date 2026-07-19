@@ -9,6 +9,6 @@
 // making illegal states unrepresentable.
 class BonusCard : public Card {
 public:
-    explicit BonusCard(bool faceUp);
+    explicit BonusCard(bool faceUp = false);
     std::string getRevealMessage() const override;
 };

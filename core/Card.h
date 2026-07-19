@@ -10,7 +10,7 @@ enum class CardType { Standard, Bonus, Penalty };
 // without a screen and renderable without touching game logic.
 class Card {
 public:
-    Card(int number, bool faceUp);
+    Card(int number, bool faceUp = false);
     virtual ~Card() = default;
 
     void setNumber(int number);

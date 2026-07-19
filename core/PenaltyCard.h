@@ -4,6 +4,6 @@
 // Same reasoning as BonusCard: number 8 is fixed internally.
 class PenaltyCard : public Card {
 public:
-    explicit PenaltyCard(bool faceUp);
+    explicit PenaltyCard(bool faceUp = false);
     std::string getRevealMessage() const override;
 };
