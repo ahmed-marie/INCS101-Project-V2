@@ -8,9 +8,6 @@ Player::Player(std::string name, int score)
 }
 
 
-Player::~Player() {}
-
-
 const std::string& Player::getName() const
 {
 	return name;
@@ -54,7 +51,7 @@ void Player::incrementTurn()
 
 void Player::incrementTurn(int turn)
 {
-	turnsNo+=turn;
+	turnsNo += turn;
 }
 
 void Player::decrementTurn()

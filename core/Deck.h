@@ -1,5 +1,8 @@
 #pragma once
 #include "Card.h"
+#include "StandardCard.h"
+#include "BonusCard.h"
+#include "PenaltyCard.h"
 #include <array>
 #include <memory>
 
