@@ -7,9 +7,6 @@ Card::Card(int number, bool faceUp)
 }
 
 
-Card::~Card() {}
-
-
 void Card::setNumber(int number)
 {
 	this->number = number;
@@ -33,7 +30,7 @@ bool Card::isFaceUp() const
 	return faceUp;
 }
 
-CardType getCardType() const
+CardType Card::getCardType() const
 {
 	return cardType;
 }

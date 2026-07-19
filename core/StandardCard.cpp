@@ -9,5 +9,5 @@ StandardCard::StandardCard(int number, bool faceUp) : Card(number, faceUp)
 
 std::string StandardCard::getRevealMessage() const
 {
-	return "Standard Card " + number + " is revealed";
+	return "Standard Card " + std::to_string(number) + " is revealed";
 }
