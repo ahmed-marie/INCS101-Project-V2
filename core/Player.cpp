@@ -14,7 +14,7 @@ const std::string& Player::getName() const
 }
 
 
-void Player::setName(std::string&& name)
+void Player::setName(const std::string& name)
 {
 	this->name = std::move(name);
 }
