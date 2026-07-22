@@ -16,7 +16,7 @@ const std::string& Player::getName() const
 
 void Player::setName(const std::string& name)
 {
-	this->name = std::move(name);
+	this->name = name;
 }
 
 void Player::setScore(int score)
