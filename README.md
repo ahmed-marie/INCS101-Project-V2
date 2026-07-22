@@ -1,5 +1,6 @@
 # Memory Match — C++ Card Game
 
+# Preface
 A two-player memory-matching card game, built as a hands-on exercise in
 professional C++ engineering practice: clean object-oriented design, a
 UI-agnostic game engine, a Qt desktop front-end, and an automated
