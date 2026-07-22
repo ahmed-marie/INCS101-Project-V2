@@ -13,7 +13,7 @@ inline constexpr int NUM_PENALTY_PAIRS = 1;
 inline constexpr int DECK_SIZE =
     2 * (NUM_STANDARD_PAIRS + NUM_BONUS_PAIRS + NUM_PENALTY_PAIRS);
 
-enum class CardEvent { NotFound, RevealedBefore, Found };
+enum class CardEvent {NotFound, RevealedBefore, Found };
 
 enum class RevealedCardsEvent {
     Invalid, TwoSameStandard, TwoDifferentStandard,
@@ -25,7 +25,7 @@ enum class DeckStatus { Empty, OneCardLeft, TwoOrMoreLeft };
 
 class Deck {
 public:
-    // Normal play: builds and shuffles a fresh 16-card deck.
+    // Normal play: builds a fresh 16-card deck.
     Deck();
 
     // Test-only path: inject a known, non-shuffled layout so

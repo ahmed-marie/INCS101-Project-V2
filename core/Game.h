@@ -7,11 +7,6 @@
 
 inline constexpr int PLAYER_NUMBERS = 2;
 
-// GamePhase replaces the old GAME_STATE_T, but it now also
-// describes *what input the caller owes the game next* - this
-// is what lets a GUI know "show a bonus-choice dialog now" instead
-// of the old design where that choice was answered via a blocking
-// cin >> n buried inside evaluateTurn().
 enum class GamePhase {
     NotStarted,
     AwaitingFirstCard,
@@ -21,26 +16,17 @@ enum class GamePhase {
     GameOver
 };
 
+// Pending is not a real outcome - it exists purely as a safe default
+// value to assign local TurnOutcome variables to before the real
+// value is computed (the same defensive pattern used to fix the
+// uninitialized RevealedCardsEvent bug in Deck::evaluateFlippedCards).
+// It should never be the *final* value passed to applyTurnOutcome().
 enum class TurnOutcome { Pending, BonusTurn, SkipTurn, EndTurn };
 
-// This is the core rearchitecture. Compare each public method here
-// to the old Game class:
-//   - intializeGame() -> setPlayerNames() + startGame(), no cin
-//   - requestCardFlip() -> onCardClicked(row, col), no cin, returns
-//     immediately instead of looping until valid input arrives
-//   - evaluateTurn()'s cin >> n for bonus/penalty choice ->
-//     onBonusChoice()/onPenaltyChoice(), called separately, only
-//     when getPhase() says the game is actually waiting on it
-//   - loopGame() -> gone entirely. There is no loop. The caller
-//     (GUI event loop, or a test driving calls directly) is now
-//     in control of pacing, not Game.
-//   - finalizeGame()'s cout -> getWinnerIndex(), caller decides
-//     how/whether to display it
-//
-// Nothing in this class includes <iostream>. That's the whole point.
 class Game {
 public:
     Game();
+    Game(Deck presetDeck);
 
     void setPlayerNames(const std::string& p1Name, const std::string& p2Name);
     void startGame(int startingPlayerIndex); // 0 or 1
@@ -48,12 +34,17 @@ public:
     // --- Actions driven by the caller (GUI click handler, or a test) ---
 
     // Attempt to flip the card at (row, col), 1-indexed, range [1, GRID_SIZE].
-    // Returns what happened so the caller can react (e.g. show
-    // "already revealed" feedback) without Game printing anything.
+    // Returns what happened to THIS card only (found / already revealed /
+    // out of range) - it does not report turn-level results. After a
+    // call that returns Found and completes a pair, check getPhase():
+    // AwaitingBonusChoice/AwaitingPenaltyChoice means the caller owes
+    // Game a choice next; anything else means the turn already resolved.
     CardEvent onCardClicked(int row, int col);
 
     // Only valid when getPhase() == AwaitingBonusChoice.
     // choice: 1 = take 2 points and end turn, 2 = take 1 point and continue.
+    // Returns the resulting TurnOutcome so a caller (or a test) can
+    // assert on it directly, without needing a second call.
     TurnOutcome onBonusChoice(int choice);
 
     // Only valid when getPhase() == AwaitingPenaltyChoice.
@@ -62,6 +53,10 @@ public:
 
     // --- Read-only state for rendering and for tests ---
 
+    // Builds a fresh, disposable snapshot of current state, including
+    // whatever statusMessage was last set by an internal method (e.g.
+    // "Bonus turn! Alice goes again."). Game's members are the live
+    // source of truth; the returned struct is just a point-in-time copy.
     GameSnapshot getSnapshot() const;
     GamePhase getPhase() const;
 
@@ -69,10 +64,33 @@ public:
     int getWinnerIndex() const;
 
 private:
-    void resolveRevealedPair();          // calls deck.evaluateFlippedCards(), updates score/phase
+    // Called once the second card of a turn is flipped (from
+    // onCardClicked()). Calls deck.evaluateFlippedCards(), and for the
+    // 5 outcomes that don't require a choice, applies the score delta
+    // directly (score depends on which RevealedCardsEvent occurred,
+    // which applyTurnOutcome() below has no visibility into) and
+    // returns the resulting TurnOutcome. For TwoBonus/TwoPenalty,
+    // instead sets phase to AwaitingBonusChoice/AwaitingPenaltyChoice
+    // and returns TurnOutcome::Pending - the real outcome isn't known
+    // yet, it's waiting on onBonusChoice()/onPenaltyChoice().
+    TurnOutcome resolveRevealedPair();
+
+    // Applies turnsNo adjustments and turn-passing logic (including
+    // the shift-to-next-player mechanics that used to live in a
+    // separate shiftTurn() method) for an already-resolved outcome.
+    // Score has already been applied by the caller before this runs -
+    // this method only ever touches turn credits/ownership, never score.
+    // Called by onCardClicked() (5 immediate cases) and by
+    // onBonusChoice()/onPenaltyChoice() (2 choice-driven cases) -
+    // never called with TurnOutcome::Pending.
     void applyTurnOutcome(TurnOutcome outcome);
-    void checkDeckStatusAndAdvance();     // handles ONE_CARD_LEFT / EMPTY_DECK
-    void shiftTurn();
+
+    // Checks deck.getDeckStatus() after a turn resolves; auto-reveals
+    // the last remaining card and awards its points if exactly one is
+    // left, and sets phase = GameOver once the deck is empty. This can
+    // override whatever applyTurnOutcome() just decided about the next
+    // phase, so it always runs after applyTurnOutcome(), never before.
+    void checkDeckStatusAndAdvance();
 
     std::array<Player, PLAYER_NUMBERS> players;
     Deck deck;
@@ -80,4 +98,5 @@ private:
     int currentTurn;
     int nextTurn;
     std::string statusMessage;
+    TurnOutcome turnOutcome;
 };

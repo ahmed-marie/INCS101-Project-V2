@@ -1,7 +1,7 @@
 #include "Deck.h"
 
 
-// Normal play: builds and shuffles a fresh 16-card deck.
+// Normal play: builds a fresh 16-card deck.
 Deck::Deck()
 {
 	// Initialize the cardsArr with the different types of cards
