@@ -1,0 +1,94 @@
+classDiagram
+    class Card {
+        <<abstract>>
+        #int number
+        #bool faceUp
+        #CardType cardType
+        +Card(int number, bool faceUp)
+        +setNumber(int number)
+        +getNumber() int
+        +setFaceUp(bool faceUp)
+        +isFaceUp() bool
+        +getCardType() CardType
+        +getRevealMessage()* string
+    }
+    class StandardCard {
+        +StandardCard(int number, bool faceUp)
+        +getRevealMessage() string
+    }
+    class BonusCard {
+        +BonusCard(bool faceUp)
+        +getRevealMessage() string
+    }
+    class PenaltyCard {
+        +PenaltyCard(bool faceUp)
+        +getRevealMessage() string
+    }
+    Card <|-- StandardCard
+    Card <|-- BonusCard
+    Card <|-- PenaltyCard
+
+    class Deck {
+        -unique_ptr~Card~[] cardsArr
+        -int removedCards
+        -int[2] revealedCardsIndex
+        +Deck()
+        +Deck(presetCards)
+        +shuffle()
+        +isCardExists(int index) bool
+        +getDeckStatus() DeckStatus
+        +revealCard(int row, int col) CardEvent
+        +evaluateFlippedCards() RevealedCardsEvent
+        +revealLastCard() CardType
+        +getCardAt(int index) Card*
+        +getRemovedCards() int
+    }
+    Deck o-- "16" Card : owns
+
+    class Player {
+        -string name
+        -int score
+        -int turnsNo
+        +Player(string name, int score)
+        +setName(string name)
+        +getName() string
+        +updateScore(int delta)
+        +getScore() int
+        +incrementTurn(int n)
+        +decrementTurn()
+        +getTurnsNo() int
+    }
+
+    class Game {
+        -Player[2] players
+        -Deck deck
+        -GamePhase phase
+        -int currentTurn
+        -int nextTurn
+        -string statusMessage
+        -TurnOutcome turnOutcome
+        +Game()
+        +Game(Deck presetDeck)
+        +setPlayerNames(string p1, string p2)
+        +startGame(int startingPlayerIndex)
+        +onCardClicked(int row, int col) CardEvent
+        +onBonusChoice(int choice) TurnOutcome
+        +onPenaltyChoice(int choice) TurnOutcome
+        +getSnapshot() GameSnapshot
+        +getPhase() GamePhase
+        +getWinnerIndex() int
+        -resolveRevealedPair() TurnOutcome
+        -applyTurnOutcome(TurnOutcome outcome)
+        -checkDeckStatusAndAdvance()
+    }
+    Game "1" *-- "2" Player : owns
+    Game "1" *-- "1" Deck : owns
+
+    class GameSnapshot {
+        <<struct>>
+        +CardView[4][4] grid
+        +PlayerView[2] players
+        +int currentPlayerIndex
+        +string statusMessage
+    }
+    Game ..> GameSnapshot : produces

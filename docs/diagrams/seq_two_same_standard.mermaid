@@ -1,0 +1,40 @@
+sequenceDiagram
+    actor U as User
+    participant GUI as GUI/Controller
+    participant G as Game
+    participant D as Deck
+
+    Note over U,D: Scenario 1 - Two identical Standard cards
+
+    U->>GUI: click card (r1,c1)
+    GUI->>G: onCardClicked(r1,c1)
+    G->>D: revealCard(r1,c1)
+    D-->>G: CardEvent::Found
+    Note over G: phase = AwaitingSecondCard
+    G-->>GUI: CardEvent::Found
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (card1 face up)
+    GUI-->>U: render flipped card
+
+    U->>GUI: click card (r2,c2)
+    GUI->>G: onCardClicked(r2,c2)
+    G->>D: revealCard(r2,c2)
+    D-->>G: CardEvent::Found
+    G->>G: resolveRevealedPair()
+    G->>D: evaluateFlippedCards()
+    D->>D: compare card1.number == card2.number
+    Note over D: same number -> TwoSameStandard
+    D->>D: remove both cards, removedCards += 2
+    D-->>G: RevealedCardsEvent::TwoSameStandard
+    G-->>G: TurnOutcome::BonusTurn
+    G->>G: applyTurnOutcome(BonusTurn)
+    G->>G: currentPlayer.updateScore(+1)
+    G->>G: currentPlayer.incrementTurn()
+    Note over G: statusMessage = "Match! Bonus turn - go again."
+    Note over G: phase = AwaitingFirstCard (same player)
+    G->>D: getDeckStatus()
+    D-->>G: TwoOrMoreLeft
+    G-->>GUI: TurnOutcome::BonusTurn
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (score updated, message set)
+    GUI-->>U: render updated score + "go again" message
