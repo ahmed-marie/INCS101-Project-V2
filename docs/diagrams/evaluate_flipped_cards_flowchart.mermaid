@@ -1,0 +1,21 @@
+flowchart TD
+    A[evaluateFlippedCards called] --> B{Both cards Standard?}
+    B -- Yes --> C{Same number?}
+    C -- Yes --> D["TwoSameStandard
+    remove both, +1 pt, Bonus Turn"]
+    C -- No --> E["TwoDifferentStandard
+    flip both back down, End Turn"]
+    B -- No --> F{Both cards Penalty?}
+    F -- Yes --> G["TwoPenalty - remove both
+    choice: -2 pts/End Turn OR -1 pt/Skip Turn"]
+    F -- No --> H{Both cards Bonus?}
+    H -- Yes --> I["TwoBonus - remove both
+    choice: +2 pts/End Turn OR +1 pt/Bonus Turn"]
+    H -- No --> J{One Bonus and one Penalty?}
+    J -- Yes --> K["BonusAndPenalty
+    remove both, no score change, End Turn"]
+    J -- No --> L{One Standard and one Bonus?}
+    L -- Yes --> M["StandardAndBonus
+    remove bonus, flip standard down, +1 pt, End Turn"]
+    L -- No --> N["StandardAndPenalty
+    remove penalty, flip standard down, -1 pt, End Turn"]

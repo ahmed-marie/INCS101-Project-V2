@@ -1,0 +1,38 @@
+sequenceDiagram
+    actor U as User
+    participant GUI as GUI/Controller
+    participant G as Game
+    participant D as Deck
+
+    Note over U,D: Scenario 2 - Two different Standard cards
+
+    U->>GUI: click card (r1,c1)
+    GUI->>G: onCardClicked(r1,c1)
+    G->>D: revealCard(r1,c1)
+    D-->>G: CardEvent::Found
+    Note over G: phase = AwaitingSecondCard
+    G-->>GUI: CardEvent::Found
+    GUI-->>U: render flipped card
+
+    U->>GUI: click card (r2,c2)
+    GUI->>G: onCardClicked(r2,c2)
+    G->>D: revealCard(r2,c2)
+    D-->>G: CardEvent::Found
+    G->>G: resolveRevealedPair()
+    G->>D: evaluateFlippedCards()
+    D->>D: compare card1.number != card2.number
+    Note over D: different numbers -> TwoDifferentStandard
+    D->>D: flip both cards back face-down (not removed)
+    D-->>G: RevealedCardsEvent::TwoDifferentStandard
+    G-->>G: TurnOutcome::EndTurn
+    G->>G: applyTurnOutcome(EndTurn)
+    G->>G: currentPlayer.updateScore(+0)
+    Note over G: statusMessage = "No match. Turn passes."
+    G->>G: shiftTurn()
+    Note over G: currentTurn = nextTurn, phase = AwaitingFirstCard
+    G->>D: getDeckStatus()
+    D-->>G: TwoOrMoreLeft
+    G-->>GUI: TurnOutcome::EndTurn
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (cards face-down again, next player's turn)
+    GUI-->>U: render cards flipping back + turn indicator change

@@ -1,0 +1,20 @@
+stateDiagram-v2
+    [*] --> NotStarted
+    NotStarted --> AwaitingFirstCard : startGame()
+
+    AwaitingFirstCard --> AwaitingSecondCard : onCardClicked() [valid flip]
+    AwaitingFirstCard --> AwaitingFirstCard : onCardClicked() [invalid click]
+
+    AwaitingSecondCard --> AwaitingSecondCard : onCardClicked() [invalid click]
+    AwaitingSecondCard --> AwaitingBonusChoice : onCardClicked() [TwoBonus revealed]
+    AwaitingSecondCard --> AwaitingPenaltyChoice : onCardClicked() [TwoPenalty revealed]
+    AwaitingSecondCard --> AwaitingFirstCard : onCardClicked() [5 immediate outcomes, cards remain]
+    AwaitingSecondCard --> GameOver : onCardClicked() [deck empties]
+
+    AwaitingBonusChoice --> AwaitingFirstCard : onBonusChoice() [cards remain]
+    AwaitingBonusChoice --> GameOver : onBonusChoice() [deck empties]
+
+    AwaitingPenaltyChoice --> AwaitingFirstCard : onPenaltyChoice() [cards remain]
+    AwaitingPenaltyChoice --> GameOver : onPenaltyChoice() [deck empties]
+
+    GameOver --> [*]

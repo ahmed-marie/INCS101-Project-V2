@@ -1,0 +1,55 @@
+sequenceDiagram
+    actor U as User
+    participant GUI as GUI/Controller
+    participant G as Game
+    participant D as Deck
+
+    Note over U,D: Scenario 4 - Two Penalty cards (requires a player choice)
+
+    U->>GUI: click card (r1,c1)
+    GUI->>G: onCardClicked(r1,c1)
+    G->>D: revealCard(r1,c1)
+    D-->>G: CardEvent::Found
+    Note over G: phase = AwaitingSecondCard
+    G-->>GUI: CardEvent::Found
+    GUI-->>U: render flipped card
+
+    U->>GUI: click card (r2,c2)
+    GUI->>G: onCardClicked(r2,c2)
+    G->>D: revealCard(r2,c2)
+    D-->>G: CardEvent::Found
+    G->>G: resolveRevealedPair()
+    G->>D: evaluateFlippedCards()
+    D->>D: both cards are Penalty type
+    D->>D: remove both cards, removedCards += 2
+    D-->>G: RevealedCardsEvent::TwoPenalty
+    Note over G: outcome unknown yet - waiting on player
+    G->>G: phase = AwaitingPenaltyChoice
+    G-->>G: return TurnOutcome::Pending (not applied yet)
+    G-->>GUI: CardEvent::Found
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (phase = AwaitingPenaltyChoice)
+    GUI-->>U: show "lose 2 points, or 1 point + skip a turn?" dialog
+
+    U->>GUI: selects option
+    GUI->>G: onPenaltyChoice(choice)
+
+    alt choice == 1 (lose 2 points)
+        G->>G: applyTurnOutcome(EndTurn)
+        G->>G: currentPlayer.updateScore(-2)
+        Note over G: statusMessage = "Lost 2 points. Turn passes."
+        G->>G: shiftTurn()
+    else choice == 2 (lose 1 point + skip next turn)
+        G->>G: applyTurnOutcome(SkipTurn)
+        G->>G: currentPlayer.updateScore(-1)
+        G->>G: currentPlayer.decrementTurn()
+        Note over G: statusMessage = "Lost 1 point. Next turn skipped."
+        G->>G: shiftTurn()
+    end
+
+    G->>D: getDeckStatus()
+    D-->>G: TwoOrMoreLeft
+    G-->>GUI: TurnOutcome (EndTurn or SkipTurn)
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (score updated, message set)
+    GUI-->>U: render updated score + message
