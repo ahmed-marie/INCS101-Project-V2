@@ -18,6 +18,15 @@ sequenceDiagram
     GUI->>G: onCardClicked(r2,c2)
     G->>D: revealCard(r2,c2)
     D-->>G: CardEvent::Found
+    Note over G: phase = SecondCardRevealed (not evaluated yet)
+    G-->>GUI: CardEvent::Found
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (both cards face up)
+    GUI-->>U: render both cards revealed
+    Note over GUI: start 3s display timer
+
+    Note over GUI: ...3 seconds pass...
+    GUI->>G: finalizeTurn()
     G->>G: resolveRevealedPair()
     G->>D: evaluateFlippedCards()
     D->>D: both cards are Bonus type
@@ -25,8 +34,7 @@ sequenceDiagram
     D-->>G: RevealedCardsEvent::TwoBonus
     Note over G: outcome unknown yet - waiting on player
     G->>G: phase = AwaitingBonusChoice
-    G-->>G: return TurnOutcome::Pending (not applied yet)
-    G-->>GUI: CardEvent::Found
+    G-->>GUI: TurnOutcome::Pending
     GUI->>G: getSnapshot()
     G-->>GUI: snapshot (phase = AwaitingBonusChoice)
     GUI-->>U: show "2 points, or 1 point + extra turn?" dialog
@@ -38,13 +46,11 @@ sequenceDiagram
         G->>G: applyTurnOutcome(EndTurn)
         G->>G: currentPlayer.updateScore(+2)
         Note over G: statusMessage = "Took 2 points. Turn passes."
-        G->>G: shiftTurn()
     else choice == 2 (take 1 point + extra turn)
         G->>G: applyTurnOutcome(BonusTurn)
         G->>G: currentPlayer.updateScore(+1)
         G->>G: currentPlayer.incrementTurn()
         Note over G: statusMessage = "Took 1 point. Bonus turn!"
-        Note over G: phase = AwaitingFirstCard (same player)
     end
 
     G->>D: getDeckStatus()

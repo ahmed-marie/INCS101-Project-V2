@@ -10,6 +10,7 @@ point of this project as the code itself.
 - [Why this project was rearchitected](#why-this-project-was-rearchitected)
 - [High-level architecture](#high-level-architecture)
 - [Class diagram](#class-diagram)
+- [GUI implementation](#gui-implementation)
 - [The `Game` state machine](#the-game-state-machine)
 - [Turn-resolution logic](#turn-resolution-logic)
 - [Sequence diagrams](#sequence-diagrams)
@@ -126,6 +127,7 @@ classDiagram
         -int currentTurn
         -int nextTurn
         +onCardClicked(row, col) CardEvent
+        +finalizeTurn() TurnOutcome
         +onBonusChoice(choice) TurnOutcome
         +onPenaltyChoice(choice) TurnOutcome
         +getSnapshot() GameSnapshot
@@ -147,11 +149,85 @@ classDiagram
     }
 ```
 
+## GUI implementation
+
+`gui/` is Qt Widgets, structured as one screen per class, plus one
+class that owns the `Game` for the whole session:
+
+```mermaid
+classDiagram
+    class MainWindow {
+        -QStackedWidget stack
+        -unique_ptr~Game~ game
+        +MainWindow()
+        -onStartRequested(p1, p2, startingPlayerIndex)
+        -onGameOver()
+        -onPlayAgainRequested()
+    }
+    class StartScreen {
+        +startRequested(p1Name, p2Name, startingPlayerIndex)
+    }
+    class GameScreen {
+        -Game* game
+        -bool inputLocked
+        +bindGame(Game*)
+        -onCardButtonClicked(row, col)
+        -finalizeCurrentTurn()
+        +gameOver()
+    }
+    class EndScreen {
+        +setResult(p1, p1Score, p2, p2Score, winnerIndex)
+        +playAgainRequested()
+    }
+    class CardButton {
+        -int row
+        -int col
+        +updateView(CardView)
+        +cardClicked(row, col)
+    }
+
+    MainWindow "1" *-- "1" StartScreen : owns
+    MainWindow "1" *-- "1" GameScreen : owns
+    MainWindow "1" *-- "1" EndScreen : owns
+    MainWindow "1" o-- "1" Game : owns\n(only class that constructs one)
+    GameScreen "1" o-- "16" CardButton : owns
+    GameScreen ..> Game : calls public API,\nreads via getSnapshot()
+```
+
+`MainWindow` is the only class in the whole GUI that ever constructs
+a `Game` - every other screen either receives plain data (`StartScreen`
+emits a signal with the names/starting player and never touches
+`Game` itself) or holds a non-owning pointer into the one `MainWindow`
+owns (`GameScreen::bindGame(Game*)`). This keeps the "one owner, many
+readers" rule from the core architecture intact across the UI layer
+too.
+
+**The 3-second reveal delay is a GUI-only concern, deliberately.**
+When the second card of a turn is flipped, `Game` stops at a
+`SecondCardRevealed` phase rather than evaluating immediately (see
+[state machine](#the-game-state-machine) below) - it has no concept
+of time or waiting, only phases. `GameScreen` is the one place that
+turns that phase into an actual pause, via
+`QTimer::singleShot(3000, this, &GameScreen::finalizeCurrentTurn)`,
+so the player has a chance to see the second card before `Game`
+evaluates the pair. This is a concrete case of the Model/View split
+paying off: the timing requirement was purely a UI/UX need, and
+implementing it never touched `core/` at all - only `Game`'s *phase
+model* needed a new state, not any GUI-specific code.
+
+While that timer is running, `GameScreen` also sets a private
+`inputLocked` flag to ignore further clicks - `Game::onCardClicked()`
+independently rejects any click outside `AwaitingFirstCard`/
+`AwaitingSecondCard` too, so a click slipping past the GUI's lock
+(or a future front-end that doesn't implement one) still can't
+corrupt `Deck`'s in-progress pair-tracking.
+
 ## The `Game` state machine
 
 `Game` tracks exactly what input it's waiting for next via
 `GamePhase` - this is what lets a GUI know, at any moment, whether
-to accept a card click or show a bonus/penalty choice dialog.
+to accept a card click, wait out a display delay, or show a
+bonus/penalty choice dialog.
 
 ```mermaid
 stateDiagram-v2
@@ -162,16 +238,19 @@ stateDiagram-v2
     AwaitingFirstCard --> AwaitingSecondCard : onCardClicked()\n[valid click]
 
     AwaitingSecondCard --> AwaitingSecondCard : onCardClicked()\n[invalid click]
-    AwaitingSecondCard --> AwaitingFirstCard : onCardClicked()\n[valid, 5 immediate outcomes]
-    AwaitingSecondCard --> AwaitingBonusChoice : onCardClicked()\n[valid, TwoBonus]
-    AwaitingSecondCard --> AwaitingPenaltyChoice : onCardClicked()\n[valid, TwoPenalty]
+    AwaitingSecondCard --> SecondCardRevealed : onCardClicked()\n[valid click]
+
+    SecondCardRevealed --> SecondCardRevealed : onCardClicked()\n[ignored - pair already pending]
+    SecondCardRevealed --> AwaitingFirstCard : finalizeTurn()\n[5 immediate outcomes]
+    SecondCardRevealed --> AwaitingBonusChoice : finalizeTurn()\n[TwoBonus]
+    SecondCardRevealed --> AwaitingPenaltyChoice : finalizeTurn()\n[TwoPenalty]
 
     AwaitingBonusChoice --> AwaitingFirstCard : onBonusChoice()
     AwaitingPenaltyChoice --> AwaitingFirstCard : onPenaltyChoice()
 
-    AwaitingFirstCard --> GameOver : deck empty/last card resolved
-    AwaitingBonusChoice --> GameOver : deck empty/last card resolved
-    AwaitingPenaltyChoice --> GameOver : deck empty/last card resolved
+    SecondCardRevealed --> GameOver : finalizeTurn()\n[deck empty/last card resolved]
+    AwaitingBonusChoice --> GameOver : onBonusChoice()\n[deck empty/last card resolved]
+    AwaitingPenaltyChoice --> GameOver : onPenaltyChoice()\n[deck empty/last card resolved]
 
     GameOver --> [*]
 ```
@@ -182,13 +261,27 @@ progresses the state machine. This is deliberate: it means the same
 click handler can safely be called with bad input without any
 special-case handling on the caller's side.
 
+**`SecondCardRevealed` is a deliberate pause, not an accident.**
+`onCardClicked()` stops here the moment the second card of a turn is
+flipped, *before* evaluating it - `resolveRevealedPair()` (still
+private) only ever runs from inside the new public `finalizeTurn()`,
+which is only valid while `phase == SecondCardRevealed`. This exists
+specifically so a caller can render both revealed cards before the
+game decides what they mean; without it, a mismatched pair could be
+evaluated and flipped back down before the player ever saw the
+second card. Any click received while already in
+`SecondCardRevealed` is rejected outright (`CardEvent::NotFound`,
+`phase` unchanged) rather than accepted and queued - a pair is
+already pending evaluation, and `Game` only ever tracks one at a time.
+
 ## Turn-resolution logic
 
-Once two cards are revealed, `resolveRevealedPair()` maps the
-resulting `RevealedCardsEvent` to a score change and a `TurnOutcome`.
-Five of the seven outcomes resolve immediately; the two same-type
-cases (`TwoBonus`, `TwoPenalty`) pause and wait for the player's
-choice via `onBonusChoice()`/`onPenaltyChoice()`.
+Once `finalizeTurn()` is called (see [state machine](#the-game-state-machine)
+above - only valid from `SecondCardRevealed`), `resolveRevealedPair()`
+maps the resulting `RevealedCardsEvent` to a score change and a
+`TurnOutcome`. Five of the seven outcomes resolve immediately; the two
+same-type cases (`TwoBonus`, `TwoPenalty`) pause and wait for the
+player's choice via `onBonusChoice()`/`onPenaltyChoice()`.
 
 ```mermaid
 flowchart TD
@@ -209,8 +302,9 @@ flowchart TD
 ## Sequence diagrams
 
 Each diagram traces one full scenario, from the first click through
-the score update. Source files live in
-[`docs/diagrams/sequence/`](diagrams/sequence/).
+the score update - including the 3-second display pause before the
+second card is evaluated. Source files live in
+[`docs/diagrams/`](diagrams/).
 
 ### Two identical Standard cards
 
@@ -233,6 +327,15 @@ sequenceDiagram
     GUI->>G: onCardClicked(r2,c2)
     G->>D: revealCard(r2,c2)
     D-->>G: CardEvent::Found
+    Note over G: phase = SecondCardRevealed (not evaluated yet)
+    G-->>GUI: CardEvent::Found
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (both cards face up)
+    GUI-->>U: render both cards revealed
+    Note over GUI: start 3s display timer
+
+    Note over GUI: ...3 seconds pass...
+    GUI->>G: finalizeTurn()
     G->>G: resolveRevealedPair()
     G->>D: evaluateFlippedCards()
     D->>D: compare card1.number == card2.number
@@ -274,6 +377,15 @@ sequenceDiagram
     GUI->>G: onCardClicked(r2,c2)
     G->>D: revealCard(r2,c2)
     D-->>G: CardEvent::Found
+    Note over G: phase = SecondCardRevealed (not evaluated yet)
+    G-->>GUI: CardEvent::Found
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (both cards face up)
+    GUI-->>U: render both cards revealed
+    Note over GUI: start 3s display timer
+
+    Note over GUI: ...3 seconds pass...
+    GUI->>G: finalizeTurn()
     G->>G: resolveRevealedPair()
     G->>D: evaluateFlippedCards()
     D->>D: compare card1.number != card2.number
@@ -314,6 +426,15 @@ sequenceDiagram
     GUI->>G: onCardClicked(r2,c2)
     G->>D: revealCard(r2,c2)
     D-->>G: CardEvent::Found
+    Note over G: phase = SecondCardRevealed (not evaluated yet)
+    G-->>GUI: CardEvent::Found
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (both cards face up)
+    GUI-->>U: render both cards revealed
+    Note over GUI: start 3s display timer
+
+    Note over GUI: ...3 seconds pass...
+    GUI->>G: finalizeTurn()
     G->>G: resolveRevealedPair()
     G->>D: evaluateFlippedCards()
     D->>D: both cards are Bonus type
@@ -321,7 +442,7 @@ sequenceDiagram
     D-->>G: RevealedCardsEvent::TwoBonus
     Note over G: outcome unknown yet - waiting on player
     G->>G: phase = AwaitingBonusChoice
-    G-->>GUI: CardEvent::Found
+    G-->>GUI: TurnOutcome::Pending
     GUI->>G: getSnapshot()
     G-->>GUI: snapshot (phase = AwaitingBonusChoice)
     GUI-->>U: show "2 points, or 1 point + extra turn?" dialog
@@ -369,6 +490,15 @@ sequenceDiagram
     GUI->>G: onCardClicked(r2,c2)
     G->>D: revealCard(r2,c2)
     D-->>G: CardEvent::Found
+    Note over G: phase = SecondCardRevealed (not evaluated yet)
+    G-->>GUI: CardEvent::Found
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (both cards face up)
+    GUI-->>U: render both cards revealed
+    Note over GUI: start 3s display timer
+
+    Note over GUI: ...3 seconds pass...
+    GUI->>G: finalizeTurn()
     G->>G: resolveRevealedPair()
     G->>D: evaluateFlippedCards()
     D->>D: both cards are Penalty type
@@ -376,7 +506,7 @@ sequenceDiagram
     D-->>G: RevealedCardsEvent::TwoPenalty
     Note over G: outcome unknown yet - waiting on player
     G->>G: phase = AwaitingPenaltyChoice
-    G-->>GUI: CardEvent::Found
+    G-->>GUI: TurnOutcome::Pending
     GUI->>G: getSnapshot()
     G-->>GUI: snapshot (phase = AwaitingPenaltyChoice)
     GUI-->>U: show "lose 2 points, or 1 point + skip a turn?" dialog

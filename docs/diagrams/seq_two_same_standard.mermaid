@@ -20,6 +20,15 @@ sequenceDiagram
     GUI->>G: onCardClicked(r2,c2)
     G->>D: revealCard(r2,c2)
     D-->>G: CardEvent::Found
+    Note over G: phase = SecondCardRevealed (not evaluated yet)
+    G-->>GUI: CardEvent::Found
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (both cards face up)
+    GUI-->>U: render both cards revealed
+    Note over GUI: start 3s display timer
+
+    Note over GUI: ...3 seconds pass...
+    GUI->>G: finalizeTurn()
     G->>G: resolveRevealedPair()
     G->>D: evaluateFlippedCards()
     D->>D: compare card1.number == card2.number
