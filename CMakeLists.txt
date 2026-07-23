@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_subdirectory(core)
+add_subdirectory(gui)
+
 
 # run the following comma"core/main.cpp"test
 # create a sandbox folder and add the main.cpp file to it
