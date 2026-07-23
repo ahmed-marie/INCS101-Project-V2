@@ -11,6 +11,12 @@ enum class GamePhase {
     NotStarted,
     AwaitingFirstCard,
     AwaitingSecondCard,
+    SecondCardRevealed,      // both cards face-up, not yet evaluated -
+    // waiting on finalizeTurn(). Exists so the
+    // caller gets a chance to render the second
+    // card before Game evaluates the pair; Game
+    // itself has no concept of "wait" or timing,
+    // only this phase.
     AwaitingBonusChoice,     // two bonus cards revealed, waiting on onBonusChoice()
     AwaitingPenaltyChoice,   // two penalty cards revealed, waiting on onPenaltyChoice()
     GameOver
@@ -35,11 +41,23 @@ public:
 
     // Attempt to flip the card at (row, col), 1-indexed, range [1, GRID_SIZE].
     // Returns what happened to THIS card only (found / already revealed /
-    // out of range) - it does not report turn-level results. After a
-    // call that returns Found and completes a pair, check getPhase():
-    // AwaitingBonusChoice/AwaitingPenaltyChoice means the caller owes
-    // Game a choice next; anything else means the turn already resolved.
+    // out of range) - it does not evaluate the pair, even when this is
+    // the second card of the turn. When it completes a pair, check
+    // getPhase(): SecondCardRevealed means both cards are now face-up
+    // and the caller owes Game a call to finalizeTurn() next (typically
+    // after a short delay, so the player actually sees the second card).
+    // Only valid while getPhase() is AwaitingFirstCard or
+    // AwaitingSecondCard - any other phase returns NotFound without
+    // touching the deck, since a pair is already pending evaluation.
     CardEvent onCardClicked(int row, int col);
+
+    // Only valid when getPhase() == SecondCardRevealed. Evaluates the
+    // revealed pair and, for the 5 immediate outcomes, fully resolves
+    // the turn (score, turn-credits, deck-empty check). For TwoBonus/
+    // TwoPenalty, instead leaves phase at AwaitingBonusChoice/
+    // AwaitingPenaltyChoice and returns TurnOutcome::Pending - the
+    // caller still owes onBonusChoice()/onPenaltyChoice() next.
+    TurnOutcome finalizeTurn();
 
     // Only valid when getPhase() == AwaitingBonusChoice.
     // choice: 1 = take 2 points and end turn, 2 = take 1 point and continue.

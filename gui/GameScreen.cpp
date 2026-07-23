@@ -3,6 +3,7 @@
 #include <QHBoxLayout>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QTimer>
 
 GameScreen::GameScreen(QWidget* parent) : QWidget(parent)
 {
@@ -55,12 +56,40 @@ void GameScreen::bindGame(Game* g)
 
 void GameScreen::onCardButtonClicked(int row, int col)
 {
-    if (game == nullptr)
+    if (game == nullptr || inputLocked)
     {
         return;
     }
 
     game->onCardClicked(row, col);
+    refresh();
+
+    if (game->getPhase() == GamePhase::SecondCardRevealed)
+    {
+        // Both cards are visible now - give the player a moment to
+        // actually see the second card before Game evaluates the
+        // pair. The delay is entirely a GUI concern: Game has no
+        // notion of wall-clock time, only the SecondCardRevealed
+        // phase, so this is the one place that timing decision belongs.
+        inputLocked = true;
+        QTimer::singleShot(SECOND_CARD_DISPLAY_MS, this, &GameScreen::finalizeCurrentTurn);
+        return;
+    }
+
+    if (game->getPhase() == GamePhase::GameOver)
+    {
+        emit gameOver();
+    }
+}
+
+void GameScreen::finalizeCurrentTurn()
+{
+    if (game == nullptr)
+    {
+        return;
+    }
+
+    game->finalizeTurn();
     refresh();
 
     if (game->getPhase() == GamePhase::AwaitingBonusChoice)
@@ -73,6 +102,8 @@ void GameScreen::onCardButtonClicked(int row, int col)
         promptPenaltyChoice();
         refresh();
     }
+
+    inputLocked = false;
 
     if (game->getPhase() == GamePhase::GameOver)
     {
