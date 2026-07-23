@@ -1,0 +1,37 @@
+classDiagram
+    class MainWindow {
+        -QStackedWidget stack
+        -unique_ptr~Game~ game
+        +MainWindow()
+        -onStartRequested(p1, p2, startingPlayerIndex)
+        -onGameOver()
+        -onPlayAgainRequested()
+    }
+    class StartScreen {
+        +startRequested(p1Name, p2Name, startingPlayerIndex)
+    }
+    class GameScreen {
+        -Game* game
+        -bool inputLocked
+        +bindGame(Game*)
+        -onCardButtonClicked(row, col)
+        -finalizeCurrentTurn()
+        +gameOver()
+    }
+    class EndScreen {
+        +setResult(p1, p1Score, p2, p2Score, winnerIndex)
+        +playAgainRequested()
+    }
+    class CardButton {
+        -int row
+        -int col
+        +updateView(CardView)
+        +cardClicked(row, col)
+    }
+
+    MainWindow "1" *-- "1" StartScreen : owns
+    MainWindow "1" *-- "1" GameScreen : owns
+    MainWindow "1" *-- "1" EndScreen : owns
+    MainWindow "1" o-- "1" Game : owns\n(only class that constructs one)
+    GameScreen "1" o-- "16" CardButton : owns
+    GameScreen ..> Game : calls public API,\nreads via getSnapshot()

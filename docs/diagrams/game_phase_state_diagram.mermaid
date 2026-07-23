@@ -2,19 +2,22 @@ stateDiagram-v2
     [*] --> NotStarted
     NotStarted --> AwaitingFirstCard : startGame()
 
-    AwaitingFirstCard --> AwaitingSecondCard : onCardClicked() [valid flip]
-    AwaitingFirstCard --> AwaitingFirstCard : onCardClicked() [invalid click]
+    AwaitingFirstCard --> AwaitingFirstCard : onCardClicked()\n[invalid click]
+    AwaitingFirstCard --> AwaitingSecondCard : onCardClicked()\n[valid click]
 
-    AwaitingSecondCard --> AwaitingSecondCard : onCardClicked() [invalid click]
-    AwaitingSecondCard --> AwaitingBonusChoice : onCardClicked() [TwoBonus revealed]
-    AwaitingSecondCard --> AwaitingPenaltyChoice : onCardClicked() [TwoPenalty revealed]
-    AwaitingSecondCard --> AwaitingFirstCard : onCardClicked() [5 immediate outcomes, cards remain]
-    AwaitingSecondCard --> GameOver : onCardClicked() [deck empties]
+    AwaitingSecondCard --> AwaitingSecondCard : onCardClicked()\n[invalid click]
+    AwaitingSecondCard --> SecondCardRevealed : onCardClicked()\n[valid click]
 
-    AwaitingBonusChoice --> AwaitingFirstCard : onBonusChoice() [cards remain]
-    AwaitingBonusChoice --> GameOver : onBonusChoice() [deck empties]
+    SecondCardRevealed --> SecondCardRevealed : onCardClicked()\n[ignored - pair already pending]
+    SecondCardRevealed --> AwaitingFirstCard : finalizeTurn()\n[5 immediate outcomes]
+    SecondCardRevealed --> AwaitingBonusChoice : finalizeTurn()\n[TwoBonus]
+    SecondCardRevealed --> AwaitingPenaltyChoice : finalizeTurn()\n[TwoPenalty]
 
-    AwaitingPenaltyChoice --> AwaitingFirstCard : onPenaltyChoice() [cards remain]
-    AwaitingPenaltyChoice --> GameOver : onPenaltyChoice() [deck empties]
+    AwaitingBonusChoice --> AwaitingFirstCard : onBonusChoice()
+    AwaitingPenaltyChoice --> AwaitingFirstCard : onPenaltyChoice()
+
+    SecondCardRevealed --> GameOver : finalizeTurn()\n[deck empty/last card resolved]
+    AwaitingBonusChoice --> GameOver : onBonusChoice()\n[deck empty/last card resolved]
+    AwaitingPenaltyChoice --> GameOver : onPenaltyChoice()\n[deck empty/last card resolved]
 
     GameOver --> [*]
