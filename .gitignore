@@ -5,8 +5,7 @@
 
 # CMake Build Files
 
-CMakePresets.json
-CMakeSettings.json
+CMakeUserPresets.json
 
 
 

@@ -43,6 +43,17 @@ CardEvent Game::onCardClicked(int row, int col)
         return CardEvent::NotFound;
     }
 
+    // Only accept a click while genuinely waiting for a card flip.
+    // In particular, while phase == SecondCardRevealed a pair is
+    // already flipped and pending finalizeTurn() - accepting a third
+    // reveal here would corrupt Deck's two-slot revealedCardsIndex
+    // bookkeeping. This guard exists regardless of what any particular
+    // caller (GUI, test) does or doesn't enforce on its own side.
+    if (phase != GamePhase::AwaitingFirstCard && phase != GamePhase::AwaitingSecondCard)
+    {
+        return CardEvent::NotFound;
+    }
+
     CardEvent event = deck.revealCard(row, col);
 
     if (event != CardEvent::Found)
@@ -59,29 +70,44 @@ CardEvent Game::onCardClicked(int row, int col)
     }
     else if (phase == GamePhase::AwaitingSecondCard)
     {
-        // second card of the turn - resolve the pair
-        turnOutcome = resolveRevealedPair();
-
-        if (turnOutcome != TurnOutcome::Pending)
-        {
-            // one of the 5 immediate cases - apply turn-credit/shift
-            // logic and check the deck right away
-            applyTurnOutcome(turnOutcome);
-            checkDeckStatusAndAdvance();
-        }
-        // else: TwoBonus/TwoPenalty - resolveRevealedPair() already
-        // set phase to AwaitingBonusChoice/AwaitingPenaltyChoice;
-        // applyTurnOutcome() runs later, from onBonusChoice()/onPenaltyChoice()
+        // second card of the turn - both cards are now face-up.
+        // Deliberately stop here rather than evaluating immediately,
+        // so the caller can render this state and let the player
+        // actually see the second card before finalizeTurn() runs.
+        phase = GamePhase::SecondCardRevealed;
     }
 
     return event;
+}
+
+TurnOutcome Game::finalizeTurn()
+{
+    if (phase != GamePhase::SecondCardRevealed)
+    {
+        return TurnOutcome::Pending;
+    }
+
+    turnOutcome = resolveRevealedPair();
+
+    if (turnOutcome != TurnOutcome::Pending)
+    {
+        // one of the 5 immediate cases - apply turn-credit/shift
+        // logic and check the deck right away
+        applyTurnOutcome(turnOutcome);
+        checkDeckStatusAndAdvance();
+    }
+    // else: TwoBonus/TwoPenalty - resolveRevealedPair() already set
+    // phase to AwaitingBonusChoice/AwaitingPenaltyChoice; applyTurnOutcome()
+    // runs later, from onBonusChoice()/onPenaltyChoice()
+
+    return turnOutcome;
 }
 
 TurnOutcome Game::resolveRevealedPair()
 {
     RevealedCardsEvent event = deck.evaluateFlippedCards();
     int score_delta = 0;
-    
+
     //TurnOutcome turn = TurnOutcome::Pending;
 
     switch (event)
@@ -145,7 +171,7 @@ TurnOutcome Game::onBonusChoice(int choice)
     }
     // reset, don't trust leftover state
 
-    turnOutcome = TurnOutcome::Pending;   
+    turnOutcome = TurnOutcome::Pending;
 
     if (choice == 1)
     {
