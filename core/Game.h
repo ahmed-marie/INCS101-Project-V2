@@ -32,6 +32,15 @@ enum class GamePhase {
     // operations now (revealLastCard() / evaluateLastCard()),
     // so the caller gets a chance to actually see the
     // revealed card before it's scored and disappears.
+    AwaitingLastPairReveal,  // exactly two cards remain, not yet auto-revealed -
+    // waiting on revealFinalPair(). Same reasoning as
+    // AwaitingLastCardReveal, just for a pair instead of a
+    // single card: the player never clicks these two cards
+    // themselves (there's no one left to click "against"),
+    // so Game reveals both automatically once this phase is
+    // reached.
+    LastPairRevealed,        // both final cards are face-up but not yet
+    // scored/removed - waiting on finalizeLastPair().
     GameOver
 };
 
@@ -96,6 +105,25 @@ public:
     // either way once this runs. Returns the card's type.
     CardType finalizeLastCard();
 
+    // Only valid when getPhase() == AwaitingLastPairReveal. Flips both
+    // remaining cards face-up WITHOUT scoring or removing them - phase
+    // becomes LastPairRevealed. There is no player-facing choice here
+    // even for a Bonus/Bonus or Penalty/Penalty pair - see
+    // finalizeLastPair()'s doc comment for why.
+    void revealFinalPair();
+
+    // Only valid when getPhase() == LastPairRevealed. Scores and
+    // removes the already-revealed final pair by reusing
+    // resolveRevealedPair() (the exact same logic that scores a
+    // player-revealed pair) followed by applyTurnOutcome() and
+    // checkDeckStatusAndAdvance() - the same trio finalizeTurn() uses.
+    // For a Bonus/Bonus or Penalty/Penalty pair, resolveRevealedPair()
+    // already special-cases "this pair emptied the deck" to apply a
+    // fixed score with no choice, which is always true here by
+    // construction - reusing it is what makes that fixed-score
+    // behavior apply automatically. Always ends the game.
+    TurnOutcome finalizeLastPair();
+
     // --- Read-only state for rendering and for tests ---
 
     // Builds a fresh, disposable snapshot of current state, including
@@ -135,10 +163,12 @@ private:
 
     // Checks deck.getDeckStatus() after a turn resolves. Sets phase =
     // GameOver once the deck is empty. If exactly one card remains,
-    // sets phase = AwaitingLastCardReveal rather than auto-revealing
-    // it immediately - the caller owes Game a call to revealFinalCard()
-    // next (typically after its own display delay, so the just-resolved
-    // turn is visibly rendered first). This can override whatever
+    // sets phase = AwaitingLastCardReveal; if exactly two remain, sets
+    // phase = AwaitingLastPairReveal - either way, the caller owes
+    // Game a call to revealFinalCard()/revealFinalPair() next
+    // (typically after its own display delay, so the just-resolved
+    // turn is visibly rendered first), rather than the deck being
+    // auto-revealed immediately here. This can override whatever
     // applyTurnOutcome() just decided about the next phase, so it
     // always runs after applyTurnOutcome(), never before.
     void checkDeckStatusAndAdvance();
