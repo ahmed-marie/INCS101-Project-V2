@@ -247,14 +247,14 @@ RevealedCardsEvent Deck::evaluateFlippedCards()
 
 CardType Deck::revealLastCard()
 {
-	// searching for the last unflipped card in the deck
 	for (int i = 0; i < DECK_SIZE; i++)
 	{
 		if (cardsArr[i] != nullptr)
 		{
-			cardsArr[i]->setFaceUp(true);
-			//cardsArr[i]->displayCardMessage();
-			return cardsArr[i]->getCardType();
+			CardType type = cardsArr[i]->getCardType();
+			cardsArr[i].reset(nullptr);
+			removedCards++;
+			return type;
 		}
 	}
 	return CardType::Invalid;

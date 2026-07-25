@@ -19,6 +19,12 @@ enum class GamePhase {
     // only this phase.
     AwaitingBonusChoice,     // two bonus cards revealed, waiting on onBonusChoice()
     AwaitingPenaltyChoice,   // two penalty cards revealed, waiting on onPenaltyChoice()
+    AwaitingLastCardReveal,  // exactly one card remains, not yet auto-revealed -
+    // waiting on revealFinalCard(). Exists for the same
+    // reason SecondCardRevealed does: so the caller can
+    // render the turn that just completed (e.g. a match)
+    // before Game auto-reveals and scores the final card,
+    // instead of both happening invisibly in one call.
     GameOver
 };
 
@@ -69,6 +75,15 @@ public:
     // choice: 1 = lose 2 points and end turn, 2 = lose 1 point and skip next turn.
     TurnOutcome onPenaltyChoice(int choice);
 
+    // Only valid when getPhase() == AwaitingLastCardReveal. Auto-reveals
+    // the single remaining card and applies its score effect (+1 for
+    // Bonus, -1 for Penalty; a lone Standard card has no effect, though
+    // that combination can't actually occur given the deck's card
+    // counts). Always ends the game - the deck is empty either way once
+    // this runs. Returns the type of the revealed card so a caller (or
+    // a test) can assert on it directly.
+    CardType revealFinalCard();
+
     // --- Read-only state for rendering and for tests ---
 
     // Builds a fresh, disposable snapshot of current state, including
@@ -103,11 +118,14 @@ private:
     // never called with TurnOutcome::Pending.
     void applyTurnOutcome(TurnOutcome outcome);
 
-    // Checks deck.getDeckStatus() after a turn resolves; auto-reveals
-    // the last remaining card and awards its points if exactly one is
-    // left, and sets phase = GameOver once the deck is empty. This can
-    // override whatever applyTurnOutcome() just decided about the next
-    // phase, so it always runs after applyTurnOutcome(), never before.
+    // Checks deck.getDeckStatus() after a turn resolves. Sets phase =
+    // GameOver once the deck is empty. If exactly one card remains,
+    // sets phase = AwaitingLastCardReveal rather than auto-revealing
+    // it immediately - the caller owes Game a call to revealFinalCard()
+    // next (typically after its own display delay, so the just-resolved
+    // turn is visibly rendered first). This can override whatever
+    // applyTurnOutcome() just decided about the next phase, so it
+    // always runs after applyTurnOutcome(), never before.
     void checkDeckStatusAndAdvance();
 
     std::array<Player, PLAYER_NUMBERS> players;

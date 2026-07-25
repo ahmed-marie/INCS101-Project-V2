@@ -103,6 +103,34 @@ void GameScreen::finalizeCurrentTurn()
         refresh();
     }
 
+    if (game->getPhase() == GamePhase::AwaitingLastCardReveal)
+    {
+        // Let the player see this turn's result (score already
+        // updated, shown by the refresh() above) before the final
+        // card auto-reveals and the game ends. inputLocked stays
+        // true - there's nothing left to click on anyway.
+        QTimer::singleShot(FINAL_CARD_DISPLAY_MS, this, &GameScreen::revealFinalCardAndFinish);
+        return;
+    }
+
+    inputLocked = false;
+
+    if (game->getPhase() == GamePhase::GameOver)
+    {
+        emit gameOver();
+    }
+}
+
+void GameScreen::revealFinalCardAndFinish()
+{
+    if (game == nullptr)
+    {
+        return;
+    }
+
+    game->revealFinalCard();
+    refresh();
+
     inputLocked = false;
 
     if (game->getPhase() == GamePhase::GameOver)

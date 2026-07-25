@@ -7,7 +7,7 @@ Game::Game()
     phase = GamePhase::NotStarted;
     statusMessage = std::string();
     turnOutcome = TurnOutcome::Pending;
-    deck.shuffle();
+    //deck.shuffle();
 }
 
 Game::Game(Deck presetDeck)
@@ -331,19 +331,12 @@ void Game::checkDeckStatusAndAdvance()
         phase = GamePhase::GameOver;
         break;
     case DeckStatus::OneCardLeft:
-    {
-        CardType cardType = deck.revealLastCard();
-        if (cardType == CardType::Bonus)
-        {
-            players[currentTurn].updateScore(1);
-        }
-        else if (cardType == CardType::Penalty)
-        {
-            players[currentTurn].updateScore(-1);
-        }
-        phase = GamePhase::GameOver;
+        // Deliberately stop here rather than auto-revealing immediately,
+        // so the caller can render the turn that just completed (e.g.
+        // "Match! +1 point") before the final card's own reveal and
+        // score effect happen. revealFinalCard() does the actual work.
+        phase = GamePhase::AwaitingLastCardReveal;
         break;
-    }
     case DeckStatus::TwoOrMoreLeft:
         phase = GamePhase::AwaitingFirstCard;
         turnOutcome = TurnOutcome::Pending;
@@ -351,4 +344,32 @@ void Game::checkDeckStatusAndAdvance()
     default:
         break;
     }
+}
+
+CardType Game::revealFinalCard()
+{
+    if (phase != GamePhase::AwaitingLastCardReveal)
+    {
+        // Invalid call - don't touch the deck at all. There's no
+        // "invalid" CardType sentinel (unlike TurnOutcome::Pending),
+        // so this return value is meaningless in this branch; the
+        // guard itself is what matters here.
+        return CardType::Standard;
+    }
+
+    CardType cardType = deck.revealLastCard();
+
+    if (cardType == CardType::Bonus)
+    {
+        players[currentTurn].updateScore(1);
+        statusMessage = std::string("Bonus! Final card revealed - +1 point.");
+    }
+    else if (cardType == CardType::Penalty)
+    {
+        players[currentTurn].updateScore(-1);
+        statusMessage = std::string("Penalty! Final card revealed - -1 point.");
+    }
+
+    phase = GamePhase::GameOver;
+    return cardType;
 }

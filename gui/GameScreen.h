@@ -32,6 +32,11 @@ private slots:
     // had a chance to actually see the second card.
     void finalizeCurrentTurn();
 
+    // Runs after a second display-delay timer, once the player has
+    // had a chance to see the just-completed turn's result, before
+    // Game auto-reveals and scores the final remaining card.
+    void revealFinalCardAndFinish();
+
 private:
     Game* game = nullptr;
     std::array<std::array<CardButton*, GRID_SIZE>, GRID_SIZE> cardButtons;
@@ -47,7 +52,8 @@ private:
     // this is belt-and-suspenders, not the only line of defense.
     bool inputLocked = false;
 
-    static constexpr int SECOND_CARD_DISPLAY_MS = 3000;
+    static constexpr int SECOND_CARD_DISPLAY_MS = 1500;
+    static constexpr int FINAL_CARD_DISPLAY_MS = 1500;
 
     void refresh();
     void promptBonusChoice();
