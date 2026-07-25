@@ -86,9 +86,13 @@ DeckStatus Deck::getDeckStatus() const
 	{
 		return DeckStatus::OneCardLeft;
 	}
+	else if (removedCards == (DECK_SIZE - 2))
+	{
+		return DeckStatus::TwoCardsLeft;
+	}
 	else
 	{
-		return DeckStatus::TwoOrMoreLeft;
+		return DeckStatus::ThreeOrMoreLeft;
 	}
 }
 
@@ -279,6 +283,28 @@ CardType Deck::evaluateLastCard()
 		}
 	}
 	return CardType::Invalid;
+}
+
+void Deck::revealLastPair()
+{
+	revealedCardsIndex[0] = -1;
+	revealedCardsIndex[1] = -1;
+
+	for (int i = 0; i < DECK_SIZE; i++)
+	{
+		if (cardsArr[i] != nullptr)
+		{
+			cardsArr[i]->setFaceUp(true);
+			if (revealedCardsIndex[0] == -1)
+			{
+				revealedCardsIndex[0] = i;
+			}
+			else
+			{
+				revealedCardsIndex[1] = i;
+			}
+		}
+	}
 }
 
 // Read-only accessors so a GUI (or GameSnapshot builder) can
