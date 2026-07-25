@@ -115,9 +115,12 @@ private:
     // directly (score depends on which RevealedCardsEvent occurred,
     // which applyTurnOutcome() below has no visibility into) and
     // returns the resulting TurnOutcome. For TwoBonus/TwoPenalty,
-    // instead sets phase to AwaitingBonusChoice/AwaitingPenaltyChoice
-    // and returns TurnOutcome::Pending - the real outcome isn't known
-    // yet, it's waiting on onBonusChoice()/onPenaltyChoice().
+    // normally sets phase to AwaitingBonusChoice/AwaitingPenaltyChoice
+    // and returns TurnOutcome::Pending - except when this pair was the
+    // last two cards in the deck, in which case the choice would have
+    // no real effect (nothing left to continue playing or skip), so
+    // a fixed score is applied immediately instead and the choice
+    // phase is skipped entirely.
     TurnOutcome resolveRevealedPair();
 
     // Applies turnsNo adjustments and turn-passing logic (including

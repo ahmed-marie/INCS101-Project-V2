@@ -138,6 +138,20 @@ TurnOutcome Game::resolveRevealedPair()
         statusMessage = std::string("No points. Turn passes.");
         break;
     case RevealedCardsEvent::TwoBonus:
+        if (deck.getDeckStatus() == DeckStatus::Empty)
+        {
+            // This pair was the last two cards in the deck. The
+            // choice between "+2/end turn" and "+1/bonus turn" only
+            // differs in whether the same player continues - and
+            // there's nothing left to continue playing, so the
+            // choice has no real effect. Skip it entirely rather
+            // than presenting a dialog whose answer doesn't matter.
+            score_delta = 2;
+            turnOutcome = TurnOutcome::EndTurn;
+            statusMessage = std::string(
+                "Bonus! Final pair revealed - +2 points. Game over!");
+            break;
+        }
         // outcome depends on the player's choice - pause here and
         // let onBonusChoice() finish the job. Deck already fully
         // removed both cards inside evaluateFlippedCards() above,
@@ -148,6 +162,16 @@ TurnOutcome Game::resolveRevealedPair()
         turnOutcome = TurnOutcome::Pending;
         return turnOutcome;
     case RevealedCardsEvent::TwoPenalty:
+        if (deck.getDeckStatus() == DeckStatus::Empty)
+        {
+            // Same reasoning as TwoBonus above - "skip next turn" is
+            // meaningless when the game is already over.
+            score_delta = -2;
+            turnOutcome = TurnOutcome::EndTurn;
+            statusMessage = std::string(
+                "Penalty! Final pair revealed - -2 points. Game over!");
+            break;
+        }
         phase = GamePhase::AwaitingPenaltyChoice;
         statusMessage = std::string(
             "Two Penalty Cards! 1: Lose 2 points  2: Lose 1 point + skip turn");
