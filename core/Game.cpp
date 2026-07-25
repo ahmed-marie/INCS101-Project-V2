@@ -361,6 +361,28 @@ CardType Game::revealFinalCard()
 
     if (cardType == CardType::Bonus)
     {
+        statusMessage = std::string("Bonus card revealed!");
+    }
+    else if (cardType == CardType::Penalty)
+    {
+        statusMessage = std::string("Penalty card revealed!");
+    }
+
+    phase = GamePhase::LastCardRevealed;
+    return cardType;
+}
+
+CardType Game::finalizeLastCard()
+{
+    if (phase != GamePhase::LastCardRevealed)
+    {
+        return CardType::Standard;
+    }
+
+    CardType cardType = deck.evaluateLastCard();
+
+    if (cardType == CardType::Bonus)
+    {
         players[currentTurn].updateScore(1);
         statusMessage = std::string("Bonus! Final card revealed - +1 point.");
     }

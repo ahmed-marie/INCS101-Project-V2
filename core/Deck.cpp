@@ -35,7 +35,7 @@ Deck::Deck()
 	{
 		// 1. initialize the first card in the pair
 		//cardsArr[arrayIndex++] = new PenaltyCard(counterIndex);
-	    cardsArr[arrayIndex++] = std::make_unique<PenaltyCard>();
+		cardsArr[arrayIndex++] = std::make_unique<PenaltyCard>();
 		// 2. initialize the second card in the pair
 		//cardsArr[arrayIndex++] = new PenaltyCard(counterIndex, false);
 		cardsArr[arrayIndex++] = std::make_unique<PenaltyCard>(false);
@@ -88,7 +88,7 @@ DeckStatus Deck::getDeckStatus() const
 	}
 	else
 	{
-		return DeckStatus::TwoOrMoreLeft; 
+		return DeckStatus::TwoOrMoreLeft;
 	}
 }
 
@@ -124,11 +124,11 @@ CardEvent Deck::revealCard(int index)
 		{
 			revealedCardsIndex[1] = index;
 		}
-		
+
 		// display the card's message (this should be replaced with the 
 		//cardsArr[index]->displayCardMessage();
 
-		return CardEvent::Found; 
+		return CardEvent::Found;
 	}
 }
 
@@ -206,7 +206,7 @@ RevealedCardsEvent Deck::evaluateFlippedCards()
 		removedCards += 2;
 		break;
 
-	// case 5. and 6.
+		// case 5. and 6.
 	case RevealedCardsEvent::StandardAndBonus:
 	case RevealedCardsEvent::StandardAndPenalty:
 		if (card1_type == CardType::Standard)
@@ -247,6 +247,27 @@ RevealedCardsEvent Deck::evaluateFlippedCards()
 
 CardType Deck::revealLastCard()
 {
+	// searching for the last unflipped card in the deck - flips it
+	// face-up only, does NOT remove it. evaluateLastCard() does the
+	// removal, as a separate step, so the caller can render the
+	// face-up-but-not-yet-removed state before it disappears.
+	for (int i = 0; i < DECK_SIZE; i++)
+	{
+		if (cardsArr[i] != nullptr)
+		{
+			cardsArr[i]->setFaceUp(true);
+			return cardsArr[i]->getCardType();
+		}
+	}
+	return CardType::Invalid;
+}
+
+CardType Deck::evaluateLastCard()
+{
+	// finds the same (now face-up) card, captures its type, removes
+	// it, and increments removedCards - the counterpart to
+	// evaluateFlippedCards()'s removal step, just for the single-card
+	// case.
 	for (int i = 0; i < DECK_SIZE; i++)
 	{
 		if (cardsArr[i] != nullptr)

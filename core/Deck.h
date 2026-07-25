@@ -11,9 +11,9 @@ inline constexpr int NUM_STANDARD_PAIRS = 6;
 inline constexpr int NUM_BONUS_PAIRS = 1;
 inline constexpr int NUM_PENALTY_PAIRS = 1;
 inline constexpr int DECK_SIZE =
-    2 * (NUM_STANDARD_PAIRS + NUM_BONUS_PAIRS + NUM_PENALTY_PAIRS);
+2 * (NUM_STANDARD_PAIRS + NUM_BONUS_PAIRS + NUM_PENALTY_PAIRS);
 
-enum class CardEvent {NotFound, RevealedBefore, Found };
+enum class CardEvent { NotFound, RevealedBefore, Found };
 
 enum class RevealedCardsEvent {
     Invalid, TwoSameStandard, TwoDifferentStandard,
@@ -45,6 +45,12 @@ public:
 
     RevealedCardsEvent evaluateFlippedCards();
     CardType revealLastCard();
+
+    // Finds the same (now face-up, per revealLastCard()) card, removes
+    // it, increments removedCards, and returns its type. Separate from
+    // revealLastCard() specifically so a caller can render the
+    // face-up-but-not-yet-removed state before it disappears.
+    CardType evaluateLastCard();
 
     // Read-only accessors so a GUI (or GameSnapshot builder) can
     // render the grid without Deck knowing GUI/console exists.

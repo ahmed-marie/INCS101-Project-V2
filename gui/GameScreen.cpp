@@ -76,10 +76,7 @@ void GameScreen::onCardButtonClicked(int row, int col)
         return;
     }
 
-    if (game->getPhase() == GamePhase::GameOver)
-    {
-        emit gameOver();
-    }
+    finishIfGameOver();
 }
 
 void GameScreen::finalizeCurrentTurn()
@@ -115,10 +112,7 @@ void GameScreen::finalizeCurrentTurn()
 
     inputLocked = false;
 
-    if (game->getPhase() == GamePhase::GameOver)
-    {
-        emit gameOver();
-    }
+    finishIfGameOver();
 }
 
 void GameScreen::revealFinalCardAndFinish()
@@ -131,12 +125,34 @@ void GameScreen::revealFinalCardAndFinish()
     game->revealFinalCard();
     refresh();
 
+    if (game->getPhase() == GamePhase::LastCardRevealed)
+    {
+        // The final card is now visibly face-up (shown by the
+        // refresh() above) but not yet scored or removed - give
+        // the player a moment to actually see it before Game
+        // scores it and the deck empties. inputLocked stays true.
+        QTimer::singleShot(LAST_CARD_EVALUATE_DELAY_MS, this, &GameScreen::evaluateFinalCardAndFinish);
+        return;
+    }
+
     inputLocked = false;
 
-    if (game->getPhase() == GamePhase::GameOver)
+    finishIfGameOver();
+}
+
+void GameScreen::evaluateFinalCardAndFinish()
+{
+    if (game == nullptr)
     {
-        emit gameOver();
+        return;
     }
+
+    game->finalizeLastCard();
+    refresh();
+
+    inputLocked = false;
+
+    finishIfGameOver();
 }
 
 void GameScreen::promptBonusChoice()
@@ -200,4 +216,14 @@ void GameScreen::refresh()
     player2Label->setStyleSheet(labelStyleTemplate.arg(p1Turn ? "#F0F0FF" : "#FFE066"));
 
     statusLabel->setText(QString::fromStdString(snapshot.statusMessage));
+}
+
+void GameScreen::finishIfGameOver()
+{
+    if (game->getPhase() != GamePhase::GameOver)
+    {
+        return;
+    }
+
+    QTimer::singleShot(GAME_OVER_TRANSITION_MS, this, &GameScreen::gameOver);
 }

@@ -23,8 +23,15 @@ enum class GamePhase {
     // waiting on revealFinalCard(). Exists for the same
     // reason SecondCardRevealed does: so the caller can
     // render the turn that just completed (e.g. a match)
-    // before Game auto-reveals and scores the final card,
-    // instead of both happening invisibly in one call.
+    // before Game auto-reveals the final card, instead of
+    // both happening invisibly in one call.
+    LastCardRevealed,        // the final card is face-up but not yet scored
+    // or removed - waiting on finalizeLastCard(). Exists for
+    // the same reason as AwaitingLastCardReveal itself: the
+    // reveal and the removal/scoring are two separate Deck
+    // operations now (revealLastCard() / evaluateLastCard()),
+    // so the caller gets a chance to actually see the
+    // revealed card before it's scored and disappears.
     GameOver
 };
 
@@ -75,14 +82,19 @@ public:
     // choice: 1 = lose 2 points and end turn, 2 = lose 1 point and skip next turn.
     TurnOutcome onPenaltyChoice(int choice);
 
-    // Only valid when getPhase() == AwaitingLastCardReveal. Auto-reveals
-    // the single remaining card and applies its score effect (+1 for
-    // Bonus, -1 for Penalty; a lone Standard card has no effect, though
-    // that combination can't actually occur given the deck's card
-    // counts). Always ends the game - the deck is empty either way once
-    // this runs. Returns the type of the revealed card so a caller (or
-    // a test) can assert on it directly.
+    // Only valid when getPhase() == AwaitingLastCardReveal. Flips the
+    // single remaining card face-up WITHOUT removing or scoring it -
+    // phase becomes LastCardRevealed. Returns the card's type so the
+    // caller can show a specific message immediately (e.g. "Penalty
+    // card revealed!") before finalizeLastCard() applies its effect.
     CardType revealFinalCard();
+
+    // Only valid when getPhase() == LastCardRevealed. Removes the
+    // already-revealed final card and applies its score effect (+1
+    // Bonus, -1 Penalty; no effect for Standard, though that can't
+    // actually occur here). Always ends the game - the deck is empty
+    // either way once this runs. Returns the card's type.
+    CardType finalizeLastCard();
 
     // --- Read-only state for rendering and for tests ---
 

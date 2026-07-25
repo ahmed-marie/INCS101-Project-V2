@@ -34,8 +34,13 @@ private slots:
 
     // Runs after a second display-delay timer, once the player has
     // had a chance to see the just-completed turn's result, before
-    // Game auto-reveals and scores the final remaining card.
+    // Game flips the final remaining card face-up.
     void revealFinalCardAndFinish();
+
+    // Runs after a third display-delay timer, once the player has had
+    // a chance to actually see the revealed final card, before Game
+    // scores it, removes it, and ends the game.
+    void evaluateFinalCardAndFinish();
 
 private:
     Game* game = nullptr;
@@ -54,8 +59,22 @@ private:
 
     static constexpr int SECOND_CARD_DISPLAY_MS = 1500;
     static constexpr int FINAL_CARD_DISPLAY_MS = 1500;
+    static constexpr int LAST_CARD_EVALUATE_DELAY_MS = 1500;
+    static constexpr int GAME_OVER_TRANSITION_MS = 1000;
 
     void refresh();
     void promptBonusChoice();
     void promptPenaltyChoice();
+
+    // Checks getPhase() == GameOver and, if so, emits gameOver() after
+    // a short delay rather than immediately. This exists because
+    // gameOver() is direct-connected to MainWindow::onGameOver(),
+    // which synchronously swaps this screen out - emitting it right
+    // after refresh() would swap the board away before Qt's event
+    // loop ever gets a chance to actually paint refresh()'s changes
+    // (setText/setStyleSheet only *schedule* a repaint, they don't
+    // force one). The delay guarantees a repaint happens first, so
+    // the player actually sees the final board state before the
+    // screen changes.
+    void finishIfGameOver();
 };
