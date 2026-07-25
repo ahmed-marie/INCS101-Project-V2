@@ -21,7 +21,7 @@ enum class RevealedCardsEvent {
     StandardAndBonus, StandardAndPenalty, BonusAndPenalty
 };
 
-enum class DeckStatus { Empty, OneCardLeft, TwoOrMoreLeft };
+enum class DeckStatus { Empty, OneCardLeft, TwoCardsLeft, ThreeOrMoreLeft };
 
 class Deck {
 public:
@@ -51,6 +51,13 @@ public:
     // revealLastCard() specifically so a caller can render the
     // face-up-but-not-yet-removed state before it disappears.
     CardType evaluateLastCard();
+
+    // For the "exactly 2 cards left" case: flips BOTH remaining cards
+    // face-up and records their indices in revealedCardsIndex so
+    // evaluateFlippedCards() can be reused, unmodified, to score and
+    // remove them - exactly the same logic already used for a
+    // player-revealed pair. Does not itself remove or score anything.
+    void revealLastPair();
 
     // Read-only accessors so a GUI (or GameSnapshot builder) can
     // render the grid without Deck knowing GUI/console exists.

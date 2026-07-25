@@ -110,6 +110,15 @@ void GameScreen::finalizeCurrentTurn()
         return;
     }
 
+    if (game->getPhase() == GamePhase::AwaitingLastPairReveal)
+    {
+        // Same reasoning as AwaitingLastCardReveal, for a pair -
+        // there's no click to wait for here at all, both cards are
+        // revealed automatically once this display delay passes.
+        QTimer::singleShot(LAST_PAIR_DISPLAY_MS, this, &GameScreen::revealFinalPairAndFinish);
+        return;
+    }
+
     inputLocked = false;
 
     finishIfGameOver();
@@ -226,4 +235,44 @@ void GameScreen::finishIfGameOver()
     }
 
     QTimer::singleShot(GAME_OVER_TRANSITION_MS, this, &GameScreen::gameOver);
+}
+
+void GameScreen::revealFinalPairAndFinish()
+{
+    if (game == nullptr)
+    {
+        return;
+    }
+
+    game->revealFinalPair();
+    refresh();
+
+    if (game->getPhase() == GamePhase::LastPairRevealed)
+    {
+        // Both final cards are now visibly face-up (shown by the
+        // refresh() above) but not yet scored or removed - give the
+        // player a moment to actually see them before Game scores
+        // them and the deck empties.
+        QTimer::singleShot(LAST_PAIR_EVALUATE_DELAY_MS, this, &GameScreen::evaluateFinalPairAndFinish);
+        return;
+    }
+
+    inputLocked = false;
+
+    finishIfGameOver();
+}
+
+void GameScreen::evaluateFinalPairAndFinish()
+{
+    if (game == nullptr)
+    {
+        return;
+    }
+
+    game->finalizeLastPair();
+    refresh();
+
+    inputLocked = false;
+
+    finishIfGameOver();
 }

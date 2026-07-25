@@ -42,6 +42,18 @@ private slots:
     // scores it, removes it, and ends the game.
     void evaluateFinalCardAndFinish();
 
+    // Runs after a display-delay timer, once the player has had a
+    // chance to see the just-completed turn's result, before Game
+    // automatically flips the final two remaining cards face-up
+    // (there's no click to wait for - nothing is left to click
+    // "against").
+    void revealFinalPairAndFinish();
+
+    // Runs after a further display-delay timer, once the player has
+    // had a chance to actually see the revealed final pair, before
+    // Game scores it, removes it, and ends the game.
+    void evaluateFinalPairAndFinish();
+
 private:
     Game* game = nullptr;
     std::array<std::array<CardButton*, GRID_SIZE>, GRID_SIZE> cardButtons;
@@ -60,6 +72,8 @@ private:
     static constexpr int SECOND_CARD_DISPLAY_MS = 1500;
     static constexpr int FINAL_CARD_DISPLAY_MS = 1500;
     static constexpr int LAST_CARD_EVALUATE_DELAY_MS = 1500;
+    static constexpr int LAST_PAIR_DISPLAY_MS = 1500;
+    static constexpr int LAST_PAIR_EVALUATE_DELAY_MS = 1500;
     static constexpr int GAME_OVER_TRANSITION_MS = 1000;
 
     void refresh();

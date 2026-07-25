@@ -7,7 +7,7 @@ Game::Game()
     phase = GamePhase::NotStarted;
     statusMessage = std::string();
     turnOutcome = TurnOutcome::Pending;
-    //deck.shuffle();
+    deck.shuffle();
 }
 
 Game::Game(Deck presetDeck)
@@ -361,7 +361,12 @@ void Game::checkDeckStatusAndAdvance()
         // score effect happen. revealFinalCard() does the actual work.
         phase = GamePhase::AwaitingLastCardReveal;
         break;
-    case DeckStatus::TwoOrMoreLeft:
+    case DeckStatus::TwoCardsLeft:
+        // Same reasoning as OneCardLeft, for a pair instead of a
+        // single card. revealFinalPair() does the actual reveal.
+        phase = GamePhase::AwaitingLastPairReveal;
+        break;
+    case DeckStatus::ThreeOrMoreLeft:
         phase = GamePhase::AwaitingFirstCard;
         turnOutcome = TurnOutcome::Pending;
         break;
@@ -418,4 +423,35 @@ CardType Game::finalizeLastCard()
 
     phase = GamePhase::GameOver;
     return cardType;
+}
+
+void Game::revealFinalPair()
+{
+    if (phase != GamePhase::AwaitingLastPairReveal)
+    {
+        return;
+    }
+
+    deck.revealLastPair();
+    phase = GamePhase::LastPairRevealed;
+    statusMessage = std::string("Final two cards revealed!");
+}
+
+TurnOutcome Game::finalizeLastPair()
+{
+    if (phase != GamePhase::LastPairRevealed)
+    {
+        return TurnOutcome::Pending;
+    }
+
+    // Reuses the exact same scoring logic a player-revealed pair
+    // would get - including the "this pair emptied the deck, skip the
+    // Bonus/Penalty choice" branch inside resolveRevealedPair(), which
+    // is always true here by construction (checkDeckStatusAndAdvance()
+    // only enters AwaitingLastPairReveal when exactly 2 cards remain).
+    turnOutcome = resolveRevealedPair();
+    applyTurnOutcome(turnOutcome);
+    checkDeckStatusAndAdvance();
+
+    return turnOutcome;
 }
