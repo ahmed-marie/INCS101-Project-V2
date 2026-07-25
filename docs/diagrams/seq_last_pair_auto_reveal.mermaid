@@ -1,0 +1,35 @@
+sequenceDiagram
+    actor U as User
+    participant GUI as GUI/Controller
+    participant G as Game
+    participant D as Deck
+
+    Note over G: phase = AwaitingLastPairReveal\n(exactly two cards remain - no player click\ninvolved at all, unlike every other turn)
+
+    GUI->>G: getPhase()
+    G-->>GUI: AwaitingLastPairReveal
+    Note over GUI: start display timer
+
+    Note over GUI: ...timer elapses...
+    GUI->>G: revealFinalPair()
+    G->>D: revealLastPair()
+    D->>D: flip BOTH remaining cards face-up\n(does NOT remove/score them yet)
+    Note over G: phase = LastPairRevealed
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (both cards face-up, not yet scored)
+    GUI-->>U: render both revealed cards
+    Note over GUI: start second display timer
+
+    Note over GUI: ...timer elapses...
+    GUI->>G: finalizeLastPair()
+    G->>G: resolveRevealedPair()\n(same scoring logic as a player-revealed pair -\nincluding the "pair empties the deck, skip any\nBonus/Penalty choice" rule)
+    G->>D: evaluateFlippedCards()
+    D->>D: score and remove both cards
+    D-->>G: RevealedCardsEvent
+    G->>G: applyTurnOutcome(...)
+    G->>G: checkDeckStatusAndAdvance()
+    Note over G: phase = GameOver (deck is now empty)
+    G-->>GUI: TurnOutcome
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (final scores, empty grid)
+    GUI-->>U: render final result, then switch to End Screen

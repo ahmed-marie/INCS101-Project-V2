@@ -42,7 +42,7 @@ sequenceDiagram
     Note over G: statusMessage = "Match! Bonus turn - go again."
     Note over G: phase = AwaitingFirstCard (same player)
     G->>D: getDeckStatus()
-    D-->>G: TwoOrMoreLeft
+    D-->>G: ThreeOrMoreLeft
     G-->>GUI: TurnOutcome::BonusTurn
     GUI->>G: getSnapshot()
     G-->>GUI: snapshot (score updated, message set)

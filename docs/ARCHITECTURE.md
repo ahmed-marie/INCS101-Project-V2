@@ -14,6 +14,7 @@ point of this project as the code itself.
 - [The `Game` state machine](#the-game-state-machine)
 - [Turn-resolution logic](#turn-resolution-logic)
 - [Sequence diagrams](#sequence-diagrams)
+- [Automatic endgame reveals](#automatic-endgame-reveals)
 - [Testing strategy](#testing-strategy)
 - [Game rules reference](#game-rules-reference)
 
@@ -106,6 +107,8 @@ classDiagram
         +revealCard(row, col) CardEvent
         +evaluateFlippedCards() RevealedCardsEvent
         +revealLastCard() CardType
+        +evaluateLastCard() CardType
+        +revealLastPair()
         +getCardAt(index) Card
         +getDeckStatus() DeckStatus
     }
@@ -130,6 +133,10 @@ classDiagram
         +finalizeTurn() TurnOutcome
         +onBonusChoice(choice) TurnOutcome
         +onPenaltyChoice(choice) TurnOutcome
+        +revealFinalCard() CardType
+        +finalizeLastCard() CardType
+        +revealFinalPair()
+        +finalizeLastPair() TurnOutcome
         +getSnapshot() GameSnapshot
         +getPhase() GamePhase
         +getWinnerIndex() int
@@ -173,6 +180,11 @@ classDiagram
         +bindGame(Game*)
         -onCardButtonClicked(row, col)
         -finalizeCurrentTurn()
+        -revealFinalCardAndFinish()
+        -evaluateFinalCardAndFinish()
+        -revealFinalPairAndFinish()
+        -evaluateFinalPairAndFinish()
+        -finishIfGameOver()
         +gameOver()
     }
     class EndScreen {
@@ -202,18 +214,37 @@ owns (`GameScreen::bindGame(Game*)`). This keeps the "one owner, many
 readers" rule from the core architecture intact across the UI layer
 too.
 
-**The 3-second reveal delay is a GUI-only concern, deliberately.**
+**The 1.5-second reveal delay is a GUI-only concern, deliberately.**
 When the second card of a turn is flipped, `Game` stops at a
 `SecondCardRevealed` phase rather than evaluating immediately (see
 [state machine](#the-game-state-machine) below) - it has no concept
 of time or waiting, only phases. `GameScreen` is the one place that
-turns that phase into an actual pause, via
-`QTimer::singleShot(3000, this, &GameScreen::finalizeCurrentTurn)`,
+turns that phase into an actual pause, via `QTimer::singleShot()`,
 so the player has a chance to see the second card before `Game`
 evaluates the pair. This is a concrete case of the Model/View split
 paying off: the timing requirement was purely a UI/UX need, and
 implementing it never touched `core/` at all - only `Game`'s *phase
-model* needed a new state, not any GUI-specific code.
+model* needed a new state, not any GUI-specific code. The same
+pattern repeats twice more for the two endgame phases
+(`AwaitingLastCardReveal`/`LastCardRevealed` and
+`AwaitingLastPairReveal`/`LastPairRevealed`) - each is a
+reveal-then-pause-then-evaluate chain of two `QTimer::singleShot()`
+calls in `GameScreen`, never in `core/`.
+
+**`finishIfGameOver()` exists to fix a real rendering race, not as
+extra caution.** `GameScreen::gameOver()` is direct-connected to
+`MainWindow::onGameOver()`, which synchronously swaps this screen
+out for the End Screen. Calling `refresh()` and then immediately
+`emit gameOver()` in the same function - which every endgame path
+used to do - meant the screen could swap away *before* Qt's event
+loop ever got a chance to actually paint what `refresh()` had just
+scheduled (`setText()`/`setStyleSheet()` only schedule a repaint,
+they don't force one). `finishIfGameOver()` delays the emission by a
+short `QTimer::singleShot()`, guaranteeing a real repaint happens
+first. Every path that can reach `GameOver` - a normal turn, a
+choice, the final card, the final pair - funnels through this one
+method rather than emitting `gameOver()` directly, so the fix only
+needed to exist in one place.
 
 While that timer is running, `GameScreen` also sets a private
 `inputLocked` flag to ignore further clicks - `Game::onCardClicked()`
@@ -241,16 +272,26 @@ stateDiagram-v2
     AwaitingSecondCard --> SecondCardRevealed : onCardClicked()\n[valid click]
 
     SecondCardRevealed --> SecondCardRevealed : onCardClicked()\n[ignored - pair already pending]
-    SecondCardRevealed --> AwaitingFirstCard : finalizeTurn()\n[5 immediate outcomes]
-    SecondCardRevealed --> AwaitingBonusChoice : finalizeTurn()\n[TwoBonus]
-    SecondCardRevealed --> AwaitingPenaltyChoice : finalizeTurn()\n[TwoPenalty]
+    SecondCardRevealed --> AwaitingBonusChoice : finalizeTurn()\n[TwoBonus, 3+ cards remain after]
+    SecondCardRevealed --> AwaitingPenaltyChoice : finalizeTurn()\n[TwoPenalty, 3+ cards remain after]
+    SecondCardRevealed --> AwaitingFirstCard : finalizeTurn()\n[resolved, 3+ cards remain]
+    SecondCardRevealed --> AwaitingLastCardReveal : finalizeTurn()\n[resolved, 1 card remains]
+    SecondCardRevealed --> AwaitingLastPairReveal : finalizeTurn()\n[resolved, 2 cards remain]
+    SecondCardRevealed --> GameOver : finalizeTurn()\n[deck now empty]
 
-    AwaitingBonusChoice --> AwaitingFirstCard : onBonusChoice()
-    AwaitingPenaltyChoice --> AwaitingFirstCard : onPenaltyChoice()
+    AwaitingBonusChoice --> AwaitingFirstCard : onBonusChoice()\n[3+ cards remain]
+    AwaitingBonusChoice --> AwaitingLastCardReveal : onBonusChoice()\n[1 card remains]
+    AwaitingBonusChoice --> AwaitingLastPairReveal : onBonusChoice()\n[2 cards remain]
 
-    SecondCardRevealed --> GameOver : finalizeTurn()\n[deck empty/last card resolved]
-    AwaitingBonusChoice --> GameOver : onBonusChoice()\n[deck empty/last card resolved]
-    AwaitingPenaltyChoice --> GameOver : onPenaltyChoice()\n[deck empty/last card resolved]
+    AwaitingPenaltyChoice --> AwaitingFirstCard : onPenaltyChoice()\n[3+ cards remain]
+    AwaitingPenaltyChoice --> AwaitingLastCardReveal : onPenaltyChoice()\n[1 card remains]
+    AwaitingPenaltyChoice --> AwaitingLastPairReveal : onPenaltyChoice()\n[2 cards remain]
+
+    AwaitingLastCardReveal --> LastCardRevealed : revealFinalCard()
+    LastCardRevealed --> GameOver : finalizeLastCard()
+
+    AwaitingLastPairReveal --> LastPairRevealed : revealFinalPair()
+    LastPairRevealed --> GameOver : finalizeLastPair()\n[always ends the game]
 
     GameOver --> [*]
 ```
@@ -274,6 +315,26 @@ second card. Any click received while already in
 `phase` unchanged) rather than accepted and queued - a pair is
 already pending evaluation, and `Game` only ever tracks one at a time.
 
+**`AwaitingLastCardReveal`/`LastCardRevealed` and
+`AwaitingLastPairReveal`/`LastPairRevealed` follow the exact same
+pause-then-act pattern**, for the two endgame edge cases where the
+deck runs down to a single orphaned Bonus/Penalty card, or a final
+pair. In both cases the reveal and the scoring/removal are two
+separate steps (`revealFinalCard()`/`finalizeLastCard()`,
+`revealFinalPair()`/`finalizeLastPair()`) specifically so a caller
+can render the reveal before the score changes - see
+[Automatic endgame reveals](#automatic-endgame-reveals) below for
+why this needed to be two steps rather than one.
+
+Notice these two new phases are entered automatically by
+`checkDeckStatusAndAdvance()` - the player is **never given a click**
+to flip the final one or two cards themselves; there's nothing left
+to click "against." This is different from every earlier phase in
+the diagram, where the caller always supplies a value (a coordinate,
+a choice) - `revealFinalCard()`/`revealFinalPair()` take no
+arguments at all, they only need to be *called*, whenever the caller
+is ready.
+
 ## Turn-resolution logic
 
 Once `finalizeTurn()` is called (see [state machine](#the-game-state-machine)
@@ -291,19 +352,37 @@ flowchart TD
     B -->|Standard + Bonus| E["+1 point, EndTurn"]
     B -->|Standard + Penalty| F["-1 point, EndTurn"]
     B -->|Bonus + Penalty| G["+0, EndTurn"]
-    B -->|Both Bonus| H{Player's choice}
-    H -->|Take 2 points| I["+2 points, EndTurn"]
-    H -->|Take 1 + continue| J["+1 point, BonusTurn"]
-    B -->|Both Penalty| K{Player's choice}
-    K -->|Lose 2 points| L["-2 points, EndTurn"]
-    K -->|Lose 1 + skip next| M["-1 point, SkipTurn"]
+    B -->|Both Bonus| H{Does this pair\nempty the deck?}
+    H -->|Yes - last 2 cards| H1["+2 points, EndTurn\n(no choice offered - see below)"]
+    H -->|No - cards remain| H2{Player's choice}
+    H2 -->|Take 2 points| I["+2 points, EndTurn"]
+    H2 -->|Take 1 + continue| J["+1 point, BonusTurn"]
+    B -->|Both Penalty| K{Does this pair\nempty the deck?}
+    K -->|Yes - last 2 cards| K1["-2 points, EndTurn\n(no choice offered - see below)"]
+    K -->|No - cards remain| K2{Player's choice}
+    K2 -->|Lose 2 points| L["-2 points, EndTurn"]
+    K2 -->|Lose 1 + skip next| M["-1 point, SkipTurn"]
 ```
+
+**The "does this pair empty the deck?" branches exist for a concrete
+reason, not just extra polish.** Choosing between "+2 points, end
+turn" and "+1 point, bonus turn" only matters because of what
+happens *next* - whether the same player keeps playing. If this pair
+was the literal last two cards in the deck, there is no "next" -
+both choices lead to the same place, `GameOver`, immediately. Since
+the choice can't actually change anything, it's skipped entirely
+rather than shown as a dialog whose answer doesn't matter; a fixed
+score is applied directly. This check happens inside
+`resolveRevealedPair()` itself, checking `deck.getDeckStatus() ==
+DeckStatus::Empty` right after the pair has already been removed -
+see [Automatic endgame reveals](#automatic-endgame-reveals) for how
+this same check gets reused for the fully-automatic final-pair case.
 
 ## Sequence diagrams
 
 Each diagram traces one full scenario, from the first click through
-the score update - including the 3-second display pause before the
-second card is evaluated. Source files live in
+the score update - including the display pause before the second
+card is evaluated. Source files live in
 [`docs/diagrams/`](diagrams/).
 
 ### Two identical Standard cards
@@ -349,7 +428,7 @@ sequenceDiagram
     Note over G: statusMessage = "Match! Bonus turn - go again."
     Note over G: phase = AwaitingFirstCard (same player)
     G->>D: getDeckStatus()
-    D-->>G: TwoOrMoreLeft
+    D-->>G: ThreeOrMoreLeft
     G-->>GUI: TurnOutcome::BonusTurn
     GUI->>G: getSnapshot()
     G-->>GUI: snapshot (score updated, message set)
@@ -398,7 +477,7 @@ sequenceDiagram
     Note over G: statusMessage = "No match. Turn passes."
     Note over G: currentTurn = nextTurn, phase = AwaitingFirstCard
     G->>D: getDeckStatus()
-    D-->>G: TwoOrMoreLeft
+    D-->>G: ThreeOrMoreLeft
     G-->>GUI: TurnOutcome::EndTurn
     GUI->>G: getSnapshot()
     G-->>GUI: snapshot (cards face-down again, next player's turn)
@@ -462,7 +541,7 @@ sequenceDiagram
     end
 
     G->>D: getDeckStatus()
-    D-->>G: TwoOrMoreLeft
+    D-->>G: ThreeOrMoreLeft
     G-->>GUI: TurnOutcome (EndTurn or BonusTurn)
     GUI->>G: getSnapshot()
     G-->>GUI: snapshot (score updated, message set)
@@ -526,12 +605,108 @@ sequenceDiagram
     end
 
     G->>D: getDeckStatus()
-    D-->>G: TwoOrMoreLeft
+    D-->>G: ThreeOrMoreLeft
     G-->>GUI: TurnOutcome (EndTurn or SkipTurn)
     GUI->>G: getSnapshot()
     G-->>GUI: snapshot (score updated, message set)
     GUI-->>U: render updated score + message
 ```
+
+## Automatic endgame reveals
+
+These two scenarios are different in kind from every diagram above:
+the player never clicks anything. `checkDeckStatusAndAdvance()`
+detects "exactly one card left" or "exactly two cards left"
+automatically, right after any turn resolves, and transitions
+directly into a reveal phase - there's nothing left to click
+"against."
+
+### Final card (one Bonus/Penalty card remains)
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant GUI as GUI/Controller
+    participant G as Game
+    participant D as Deck
+
+    Note over G: phase = AwaitingLastCardReveal\n(reached automatically via checkDeckStatusAndAdvance()\nafter any turn - no click involved)
+
+    GUI->>G: getPhase()
+    G-->>GUI: AwaitingLastCardReveal
+    Note over GUI: start display timer
+
+    Note over GUI: ...timer elapses...
+    GUI->>G: revealFinalCard()
+    G->>D: revealLastCard()
+    D->>D: flip the final card face-up\n(does NOT remove it yet)
+    D-->>G: CardType (Bonus or Penalty)
+    Note over G: phase = LastCardRevealed
+    G-->>GUI: CardType
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (card face-up, not yet scored)
+    GUI-->>U: render the revealed final card
+    Note over GUI: start second display timer
+
+    Note over GUI: ...timer elapses...
+    GUI->>G: finalizeLastCard()
+    G->>D: evaluateLastCard()
+    D->>D: remove the card, removedCards += 1
+    D-->>G: CardType
+    G->>G: apply +1 (Bonus) or -1 (Penalty) score effect
+    Note over G: phase = GameOver
+    G-->>GUI: CardType
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (final scores, empty grid)
+    GUI-->>U: render final card removed + updated score,\nthen (after finishIfGameOver()'s delay) switch to End Screen
+```
+
+### Final pair (two cards remain)
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant GUI as GUI/Controller
+    participant G as Game
+    participant D as Deck
+
+    Note over G: phase = AwaitingLastPairReveal\n(exactly two cards remain - no player click\ninvolved at all, unlike every other turn)
+
+    GUI->>G: getPhase()
+    G-->>GUI: AwaitingLastPairReveal
+    Note over GUI: start display timer
+
+    Note over GUI: ...timer elapses...
+    GUI->>G: revealFinalPair()
+    G->>D: revealLastPair()
+    D->>D: flip BOTH remaining cards face-up\n(does NOT remove/score them yet)
+    Note over G: phase = LastPairRevealed
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (both cards face-up, not yet scored)
+    GUI-->>U: render both revealed cards
+    Note over GUI: start second display timer
+
+    Note over GUI: ...timer elapses...
+    GUI->>G: finalizeLastPair()
+    G->>G: resolveRevealedPair()\n(same scoring logic as a player-revealed pair -\nincluding the "pair empties the deck, skip any\nBonus/Penalty choice" rule)
+    G->>D: evaluateFlippedCards()
+    D->>D: score and remove both cards
+    D-->>G: RevealedCardsEvent
+    G->>G: applyTurnOutcome(...)
+    G->>G: checkDeckStatusAndAdvance()
+    Note over G: phase = GameOver (deck is now empty)
+    G-->>GUI: TurnOutcome
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (final scores, empty grid)
+    GUI-->>U: render final result, then switch to End Screen
+```
+
+`finalizeLastPair()` deliberately calls `resolveRevealedPair()`
+rather than duplicating its scoring logic - the same "did this pair
+just empty the deck?" check from
+[turn-resolution logic](#turn-resolution-logic) above is what makes
+the Bonus/Bonus and Penalty/Penalty cases apply their fixed score
+correctly here too, with no separate code path needed.
 
 ## Testing strategy
 
@@ -564,5 +739,11 @@ cards. All cards start face-down.
 depends on what's revealed - see the [turn-resolution flowchart](#turn-resolution-logic)
 above for the complete rule set.
 
-**End of game:** play continues until the grid is empty. Highest
-score wins; equal scores end in a draw.
+**End of game:** play continues until the grid is empty. If exactly
+one Bonus/Penalty card or one matching pair is left at any point,
+it's revealed and scored automatically (see
+[Automatic endgame reveals](#automatic-endgame-reveals)) - the player
+never has to click these. If the final action would offer a
+Bonus/Bonus or Penalty/Penalty choice with nothing left to
+differentiate the outcomes, the choice is skipped and a fixed score
+applied directly. Highest score wins; equal scores end in a draw.

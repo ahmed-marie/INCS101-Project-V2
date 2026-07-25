@@ -54,7 +54,7 @@ sequenceDiagram
     end
 
     G->>D: getDeckStatus()
-    D-->>G: TwoOrMoreLeft
+    D-->>G: ThreeOrMoreLeft
     G-->>GUI: TurnOutcome (EndTurn or SkipTurn)
     GUI->>G: getSnapshot()
     G-->>GUI: snapshot (score updated, message set)

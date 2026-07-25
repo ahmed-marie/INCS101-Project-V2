@@ -9,15 +9,25 @@ stateDiagram-v2
     AwaitingSecondCard --> SecondCardRevealed : onCardClicked()\n[valid click]
 
     SecondCardRevealed --> SecondCardRevealed : onCardClicked()\n[ignored - pair already pending]
-    SecondCardRevealed --> AwaitingFirstCard : finalizeTurn()\n[5 immediate outcomes]
-    SecondCardRevealed --> AwaitingBonusChoice : finalizeTurn()\n[TwoBonus]
-    SecondCardRevealed --> AwaitingPenaltyChoice : finalizeTurn()\n[TwoPenalty]
+    SecondCardRevealed --> AwaitingBonusChoice : finalizeTurn()\n[TwoBonus, 3+ cards remain after]
+    SecondCardRevealed --> AwaitingPenaltyChoice : finalizeTurn()\n[TwoPenalty, 3+ cards remain after]
+    SecondCardRevealed --> AwaitingFirstCard : finalizeTurn()\n[resolved, 3+ cards remain]
+    SecondCardRevealed --> AwaitingLastCardReveal : finalizeTurn()\n[resolved, 1 card remains]
+    SecondCardRevealed --> AwaitingLastPairReveal : finalizeTurn()\n[resolved, 2 cards remain]
+    SecondCardRevealed --> GameOver : finalizeTurn()\n[deck now empty]
 
-    AwaitingBonusChoice --> AwaitingFirstCard : onBonusChoice()
-    AwaitingPenaltyChoice --> AwaitingFirstCard : onPenaltyChoice()
+    AwaitingBonusChoice --> AwaitingFirstCard : onBonusChoice()\n[3+ cards remain]
+    AwaitingBonusChoice --> AwaitingLastCardReveal : onBonusChoice()\n[1 card remains]
+    AwaitingBonusChoice --> AwaitingLastPairReveal : onBonusChoice()\n[2 cards remain]
 
-    SecondCardRevealed --> GameOver : finalizeTurn()\n[deck empty/last card resolved]
-    AwaitingBonusChoice --> GameOver : onBonusChoice()\n[deck empty/last card resolved]
-    AwaitingPenaltyChoice --> GameOver : onPenaltyChoice()\n[deck empty/last card resolved]
+    AwaitingPenaltyChoice --> AwaitingFirstCard : onPenaltyChoice()\n[3+ cards remain]
+    AwaitingPenaltyChoice --> AwaitingLastCardReveal : onPenaltyChoice()\n[1 card remains]
+    AwaitingPenaltyChoice --> AwaitingLastPairReveal : onPenaltyChoice()\n[2 cards remain]
+
+    AwaitingLastCardReveal --> LastCardRevealed : revealFinalCard()
+    LastCardRevealed --> GameOver : finalizeLastCard()
+
+    AwaitingLastPairReveal --> LastPairRevealed : revealFinalPair()
+    LastPairRevealed --> GameOver : finalizeLastPair()\n[always ends the game]
 
     GameOver --> [*]

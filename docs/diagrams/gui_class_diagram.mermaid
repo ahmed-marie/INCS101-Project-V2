@@ -16,6 +16,11 @@ classDiagram
         +bindGame(Game*)
         -onCardButtonClicked(row, col)
         -finalizeCurrentTurn()
+        -revealFinalCardAndFinish()
+        -evaluateFinalCardAndFinish()
+        -revealFinalPairAndFinish()
+        -evaluateFinalPairAndFinish()
+        -finishIfGameOver()
         +gameOver()
     }
     class EndScreen {

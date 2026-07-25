@@ -39,7 +39,7 @@ sequenceDiagram
     Note over G: statusMessage = "No match. Turn passes."
     Note over G: currentTurn = nextTurn, phase = AwaitingFirstCard
     G->>D: getDeckStatus()
-    D-->>G: TwoOrMoreLeft
+    D-->>G: ThreeOrMoreLeft
     G-->>GUI: TurnOutcome::EndTurn
     GUI->>G: getSnapshot()
     G-->>GUI: snapshot (cards face-down again, next player's turn)

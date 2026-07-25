@@ -1,0 +1,35 @@
+sequenceDiagram
+    actor U as User
+    participant GUI as GUI/Controller
+    participant G as Game
+    participant D as Deck
+
+    Note over G: phase = AwaitingLastCardReveal\n(reached automatically via checkDeckStatusAndAdvance()\nafter any turn - no click involved)
+
+    GUI->>G: getPhase()
+    G-->>GUI: AwaitingLastCardReveal
+    Note over GUI: start display timer
+
+    Note over GUI: ...timer elapses...
+    GUI->>G: revealFinalCard()
+    G->>D: revealLastCard()
+    D->>D: flip the final card face-up\n(does NOT remove it yet)
+    D-->>G: CardType (Bonus or Penalty)
+    Note over G: phase = LastCardRevealed
+    G-->>GUI: CardType
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (card face-up, not yet scored)
+    GUI-->>U: render the revealed final card
+    Note over GUI: start second display timer
+
+    Note over GUI: ...timer elapses...
+    GUI->>G: finalizeLastCard()
+    G->>D: evaluateLastCard()
+    D->>D: remove the card, removedCards += 1
+    D-->>G: CardType
+    G->>G: apply +1 (Bonus) or -1 (Penalty) score effect
+    Note over G: phase = GameOver
+    G-->>GUI: CardType
+    GUI->>G: getSnapshot()
+    G-->>GUI: snapshot (final scores, empty grid)
+    GUI-->>U: render final card removed + updated score,\nthen (after finishIfGameOver()'s delay) switch to End Screen

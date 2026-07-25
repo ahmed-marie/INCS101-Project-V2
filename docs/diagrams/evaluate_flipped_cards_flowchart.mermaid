@@ -1,21 +1,17 @@
 flowchart TD
-    A[evaluateFlippedCards called] --> B{Both cards Standard?}
-    B -- Yes --> C{Same number?}
-    C -- Yes --> D["TwoSameStandard
-    remove both, +1 pt, Bonus Turn"]
-    C -- No --> E["TwoDifferentStandard
-    flip both back down, End Turn"]
-    B -- No --> F{Both cards Penalty?}
-    F -- Yes --> G["TwoPenalty - remove both
-    choice: -2 pts/End Turn OR -1 pt/Skip Turn"]
-    F -- No --> H{Both cards Bonus?}
-    H -- Yes --> I["TwoBonus - remove both
-    choice: +2 pts/End Turn OR +1 pt/Bonus Turn"]
-    H -- No --> J{One Bonus and one Penalty?}
-    J -- Yes --> K["BonusAndPenalty
-    remove both, no score change, End Turn"]
-    J -- No --> L{One Standard and one Bonus?}
-    L -- Yes --> M["StandardAndBonus
-    remove bonus, flip standard down, +1 pt, End Turn"]
-    L -- No --> N["StandardAndPenalty
-    remove penalty, flip standard down, -1 pt, End Turn"]
+    A[Two cards revealed] --> B{Card types?}
+    B -->|Both Standard, same number| C["+1 point, BonusTurn"]
+    B -->|Both Standard, different number| D["+0, EndTurn (flip back down)"]
+    B -->|Standard + Bonus| E["+1 point, EndTurn"]
+    B -->|Standard + Penalty| F["-1 point, EndTurn"]
+    B -->|Bonus + Penalty| G["+0, EndTurn"]
+    B -->|Both Bonus| H{Does this pair\nempty the deck?}
+    H -->|Yes - last 2 cards| H1["+2 points, EndTurn\n(no choice offered)"]
+    H -->|No - cards remain| H2{Player's choice}
+    H2 -->|Take 2 points| I["+2 points, EndTurn"]
+    H2 -->|Take 1 + continue| J["+1 point, BonusTurn"]
+    B -->|Both Penalty| K{Does this pair\nempty the deck?}
+    K -->|Yes - last 2 cards| K1["-2 points, EndTurn\n(no choice offered)"]
+    K -->|No - cards remain| K2{Player's choice}
+    K2 -->|Lose 2 points| L["-2 points, EndTurn"]
+    K2 -->|Lose 1 + skip next| M["-1 point, SkipTurn"]

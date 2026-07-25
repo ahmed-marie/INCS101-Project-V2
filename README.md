@@ -65,10 +65,21 @@ See [Building and Running](#building-and-running) below.
   waiting, only an explicit `SecondCardRevealed` phase — proof the
   Model/View split holds up under a real interaction requirement, not
   just in theory.
+- **Endgame edge cases handled without special-casing the GUI** — when
+  the deck runs down to one orphaned card or a final pair, `Game`
+  automatically transitions through dedicated phases
+  (`AwaitingLastCardReveal`, `AwaitingLastPairReveal`) rather than
+  requiring a click that has nothing left to click "against." The
+  same reveal-then-pause-then-score pattern used for a normal turn
+  gets reused here with zero new GUI logic.
 
 See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the full
 technical write-up: class diagram, game-flow state machine, and
 sequence diagrams for each turn-resolution scenario.
+
+Full changelog for each version is in the
+**[Releases](https://github.com/ahmed-marie/INCS101-Project-V2/releases)**
+page.
 
 ## Building and Running
 

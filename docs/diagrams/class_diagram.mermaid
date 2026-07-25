@@ -29,6 +29,8 @@ classDiagram
         +revealCard(row, col) CardEvent
         +evaluateFlippedCards() RevealedCardsEvent
         +revealLastCard() CardType
+        +evaluateLastCard() CardType
+        +revealLastPair()
         +getCardAt(index) Card
         +getDeckStatus() DeckStatus
     }
@@ -53,6 +55,10 @@ classDiagram
         +finalizeTurn() TurnOutcome
         +onBonusChoice(choice) TurnOutcome
         +onPenaltyChoice(choice) TurnOutcome
+        +revealFinalCard() CardType
+        +finalizeLastCard() CardType
+        +revealFinalPair()
+        +finalizeLastPair() TurnOutcome
         +getSnapshot() GameSnapshot
         +getPhase() GamePhase
         +getWinnerIndex() int
